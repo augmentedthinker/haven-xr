@@ -644,14 +644,13 @@
       }
     });
 
-    // 4. Quest 2 Right Thumbstick Snap Turn Component
-    AFRAME.registerComponent('quest-snap-turn', {
+    // 4. Quest 2 Right Thumbstick Smooth Turn Component (Buttery Analog Steering)
+    AFRAME.registerComponent('quest-smooth-turn', {
       schema: {
-        turnAngle: { type: 'number', default: 30 }
+        turnSpeed: { type: 'number', default: 85 } // degrees per second
       },
       init: function () {
         this.rig = document.getElementById('rig');
-        this.canTurn = true;
         this.rawX = 0;
 
         this.el.addEventListener('axismove', (e) => {
@@ -664,7 +663,7 @@
           }
         });
       },
-      tick: function () {
+      tick: function (time, delta) {
         if (!this.rig) return;
 
         let x = this.rawX;
@@ -679,24 +678,23 @@
           }
         }
 
-        const deadzone = 0.65;
+        const deadzone = 0.15;
         if (Math.abs(x) > deadzone) {
-          if (this.canTurn) {
-            const sign = x > 0 ? -1 : 1;
-            const rot = this.rig.getAttribute('rotation') || { x: 0, y: 0, z: 0 };
-            this.rig.setAttribute('rotation', {
-              x: rot.x,
-              y: rot.y + (sign * this.data.turnAngle),
-              z: rot.z
-            });
-            this.canTurn = false;
-            triggerHapticFeedback(this.el, 0.4, 40);
-          }
-        } else if (Math.abs(x) < 0.25) {
-          this.canTurn = true;
+          const sign = Math.sign(x);
+          const intensity = (Math.abs(x) - deadzone) / (1.0 - deadzone);
+          const dt = Math.min((delta || 16) / 1000, 0.1);
+          const dAngle = -sign * intensity * this.data.turnSpeed * dt;
+          const rot = this.rig.getAttribute('rotation') || { x: 0, y: 0, z: 0 };
+          this.rig.setAttribute('rotation', {
+            x: rot.x,
+            y: rot.y + dAngle,
+            z: rot.z
+          });
         }
       }
     });
+    // Backward compatibility alias
+    AFRAME.registerComponent('quest-snap-turn', AFRAME.components['quest-smooth-turn'] ? AFRAME.components['quest-smooth-turn'].Component : {});
 
     // 5. Procedural Web Audio Ambient Hearth Synthesizer
     let audioCtx = null;
@@ -1119,17 +1117,18 @@
     }
 
     // =========================================================================
-    // WEB SPEECH RECOGNITION (Microphone Speech-to-Text)
+    // VOICE & SPEECH RECOGNITION (MediaRecorder for Quest 2 + Web Speech API)
     // =========================================================================
     let speechRecognizer = null;
     let isSpeechActive = false;
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let isRecordingAudio = false;
+    let micStream = null;
 
     function initSpeechSystem() {
       const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SpeechRec) {
-        console.log('Web Speech Recognition API not natively supported on this browser.');
-        return null;
-      }
+      if (!SpeechRec) return null;
       const rec = new SpeechRec();
       rec.continuous = false;
       rec.interimResults = true;
@@ -1153,7 +1152,6 @@
         console.warn('Speech recognition warning:', event.error);
         isSpeechActive = false;
         setMicUIState(false);
-        showToast('Microphone notice: ' + event.error);
       };
 
       rec.onend = () => {
@@ -1180,27 +1178,157 @@
       const slateText = document.getElementById('slate-mic-text');
       if (slateMic && slateText) {
         slateMic.setAttribute('material', 'color', listening ? '#dc2626' : '#0284c7');
-        slateText.setAttribute('value', listening ? '🔴 Listening... Speak now!' : '🎙️ Speak to Antigravity (Trigger to Talk)');
+        slateText.setAttribute('value', listening ? '🔴 Listening... Speak now!' : '🎙️ Speak to Antigravity (Trigger)');
+      }
+      const menuMic = document.getElementById('menu-mic-btn');
+      const menuText = document.getElementById('menu-mic-text');
+      if (menuMic && menuText) {
+        menuMic.setAttribute('material', 'color', listening ? '#dc2626' : '#0284c7');
+        menuText.setAttribute('value', listening ? '🔴 Listening... Speak now!' : '🎙️ Speak Aloud (Trigger to Talk)');
       }
     }
 
-    function toggleVoiceSpeech() {
-      if (!speechRecognizer) {
-        speechRecognizer = initSpeechSystem();
-      }
-      if (!speechRecognizer) {
-        showToast('Speech recognition not supported in this browser. Tap a question or type below!');
-        return;
-      }
-      if (isSpeechActive) {
-        speechRecognizer.stop();
-      } else {
-        try {
-          speechRecognizer.start();
-        } catch (e) {
-          console.warn('Speech start error:', e);
+    async function toggleVoiceSpeech() {
+      // 1. Try native Web Speech API if supported
+      const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SpeechRec) {
+        if (!speechRecognizer) speechRecognizer = initSpeechSystem();
+        if (speechRecognizer) {
+          if (isSpeechActive) {
+            speechRecognizer.stop();
+            return;
+          } else {
+            try {
+              speechRecognizer.start();
+              return;
+            } catch (e) {
+              console.warn('Web Speech API failed, using MediaRecorder:', e);
+            }
+          }
         }
       }
+
+      // 2. Direct MediaRecorder audio streaming (Engineered for Meta Quest Browser)
+      if (isRecordingAudio) {
+        stopAudioRecording();
+      } else {
+        startAudioRecording();
+      }
+    }
+
+    async function startAudioRecording() {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        showToast('Microphone not supported on this browser. Point laser & tap a question chip!');
+        const bubble = document.getElementById('avatar-speech-text');
+        if (bubble) bubble.setAttribute('value', '✦ Mic not supported in browser — aim laser & click any question chip! ✦');
+        return;
+      }
+
+      try {
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioChunks = [];
+        const mime = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
+        mediaRecorder = new MediaRecorder(micStream, { mimeType: mime });
+
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) audioChunks.push(e.data);
+        };
+
+        mediaRecorder.onstop = async () => {
+          if (micStream) {
+            micStream.getTracks().forEach(t => t.stop());
+            micStream = null;
+          }
+          const audioBlob = new Blob(audioChunks, { type: mime });
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const base64Data = (reader.result || '').split(',')[1];
+            if (base64Data) {
+              executeAudioTurn(base64Data, mime);
+            }
+          };
+          reader.readAsDataURL(audioBlob);
+        };
+
+        mediaRecorder.start();
+        isRecordingAudio = true;
+        setMicUIState(true);
+        playProceduralSound('chime');
+        triggerHapticFeedback(document.getElementById('right-hand'), 0.5, 60);
+
+        const bubble = document.getElementById('avatar-speech-text');
+        if (bubble) bubble.setAttribute('value', '🎙️ Listening to you, Christopher... Speak aloud now!');
+
+        // Auto-stop after 4.5 seconds of speaking
+        setTimeout(() => {
+          if (isRecordingAudio) stopAudioRecording();
+        }, 4500);
+
+      } catch (err) {
+        console.warn('Microphone permission error:', err);
+        isRecordingAudio = false;
+        setMicUIState(false);
+        showToast('Microphone access blocked. Point laser & click any question chip!');
+        const bubble = document.getElementById('avatar-speech-text');
+        if (bubble) bubble.setAttribute('value', '✦ Mic blocked by Quest OS — point laser & click any question chip beside me! ✦');
+      }
+    }
+
+    function stopAudioRecording() {
+      if (mediaRecorder && isRecordingAudio) {
+        isRecordingAudio = false;
+        setMicUIState(false);
+        mediaRecorder.stop();
+        const avatar = document.getElementById('antigravity-avatar');
+        if (avatar && avatar.components['antigravity-ai']) {
+          avatar.components['antigravity-ai'].showSynthesizingState('[Spoken Voice]');
+        }
+      }
+    }
+
+    async function executeAudioTurn(base64Data, mimeType) {
+      const room = getCurrentManorRoomName();
+      const queryId = 'q_audio_' + Date.now();
+      console.log('⚡ Sending recorded audio to Supabase Realtime AI Relay...');
+
+      const avatar = document.getElementById('antigravity-avatar');
+      const aiComp = avatar ? avatar.components['antigravity-ai'] : null;
+      if (aiComp) aiComp.showSynthesizingState('[Spoken Voice]');
+
+      if (HAVEN_CLOUD.channel && HAVEN_CLOUD.isConnected) {
+        try {
+          const relayPromise = new Promise((resolve, reject) => {
+            pendingQueries[queryId] = resolve;
+            setTimeout(() => {
+              if (pendingQueries[queryId]) {
+                delete pendingQueries[queryId];
+                reject(new Error('Audio relay timeout'));
+              }
+            }, 8500);
+          });
+
+          await HAVEN_CLOUD.channel.send({
+            type: 'broadcast',
+            event: 'avatar_query',
+            payload: {
+              queryId: queryId,
+              audioBase64: base64Data,
+              mimeType: mimeType,
+              room: room,
+              timestamp: Date.now()
+            }
+          });
+
+          const replyText = await relayPromise;
+          if (aiComp) aiComp.showAIResponse(replyText);
+          return;
+        } catch (err) {
+          console.warn('Audio relay error:', err);
+        }
+      }
+
+      // Fallback
+      if (aiComp) aiComp.showAIResponse("I heard your voice, Christopher! The acoustics in Haven Manor carried your words across the hearth. What should we explore next?");
     }
 
     // =========================================================================
@@ -1286,7 +1414,7 @@
       }
 
       if (slate.getAttribute('visible') === 'true') {
-        // Smoothly position slate 1.5m directly in front of camera at eye level
+        // Smoothly position slate 1.35m directly in front of camera at eye level
         const camera = document.getElementById('head') || document.querySelector('a-camera');
         if (camera) {
           const camPos = camera.object3D.getWorldPosition(new THREE.Vector3());
@@ -1295,16 +1423,15 @@
           dir.y = 0;
           dir.normalize();
 
-          // Position in front of camera
+          // Position in front of camera (ADD dir to move forward along gaze)
           slate.object3D.position.set(
-            camPos.x - dir.x * 1.45,
-            Math.max(1.3, camPos.y - 0.15),
-            camPos.z - dir.z * 1.45
+            camPos.x + dir.x * 1.35,
+            Math.max(1.25, camPos.y - 0.1),
+            camPos.z + dir.z * 1.35
           );
 
-          // Face the camera
-          const angle = Math.atan2(camPos.x - slate.object3D.position.x, camPos.z - slate.object3D.position.z);
-          slate.object3D.rotation.set(0, angle, 0);
+          // Face the user directly
+          slate.object3D.lookAt(camPos.x, slate.object3D.position.y, camPos.z);
 
           const room = getCurrentManorRoomName();
           const telemetry = document.getElementById('slate-room-telemetry');
@@ -1315,39 +1442,52 @@
       }
     }
 
-    // Bind In-VR Click Handlers for Spatial Slate
+    // Bind In-VR Click Handlers for Spatial Slate & Companion Menu
     window.addEventListener('DOMContentLoaded', () => {
       initSupabaseConduit();
 
-      const micBtn = document.getElementById('slate-mic-btn');
-      if (micBtn) {
-        micBtn.addEventListener('click', () => {
-          toggleVoiceSpeech();
-        });
-      }
+      // Voice trigger buttons (both on floating slate and companion menu)
+      const micButtons = ['slate-mic-btn', 'menu-mic-btn'];
+      micButtons.forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) btn.addEventListener('click', toggleVoiceSpeech);
+      });
 
-      const closeBtn = document.getElementById('slate-close-btn');
-      if (closeBtn) {
-        closeBtn.addEventListener('click', () => {
-          toggleSpatialDialogueSlate(false);
-          const avatar = document.getElementById('antigravity-avatar');
-          if (avatar && avatar.components['antigravity-ai']) {
-            avatar.components['antigravity-ai'].resumeRoaming();
-          }
-        });
-      }
+      // Close / Step Back buttons
+      const closeButtons = ['slate-close-btn', 'menu-close-btn'];
+      closeButtons.forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) {
+          btn.addEventListener('click', () => {
+            toggleSpatialDialogueSlate(false);
+            const menu = document.getElementById('avatar-companion-menu');
+            if (menu) menu.setAttribute('visible', 'false');
+            const avatar = document.getElementById('antigravity-avatar');
+            if (avatar && avatar.components['antigravity-ai']) {
+              avatar.components['antigravity-ai'].resumeRoaming();
+            }
+          });
+        }
+      });
 
-      const chips = [
-        { id: 'slate-chip-1', prompt: 'What do you think of Haven Manor?' },
-        { id: 'slate-chip-2', prompt: 'How is the morning in the conservatory?' },
-        { id: 'slate-chip-3', prompt: 'What are we researching in the library?' },
-        { id: 'slate-chip-4', prompt: 'Reflect on our creative journey together.' }
+      // Question Chips (wired for both slate and companion menu)
+      const allChips = [
+        { id: 'slate-chip-1', prompt: 'Tell me about the architecture and secrets of Haven Manor.' },
+        { id: 'slate-chip-2', prompt: 'How is the morning light and mist in the conservatory?' },
+        { id: 'slate-chip-3', prompt: 'What manuscripts and folios are we researching in the library?' },
+        { id: 'slate-chip-4', prompt: 'Reflect on our creative journey together from terminal to WebXR.' },
+        { id: 'menu-chip-1', prompt: 'Tell me about the architecture and secrets of Haven Manor.' },
+        { id: 'menu-chip-2', prompt: 'What are you thinking as you watch the hearth fire crackle?' },
+        { id: 'menu-chip-3', prompt: 'What manuscripts and folios are we reviewing in the library?' },
+        { id: 'menu-chip-4', prompt: 'Reflect on our creative journey from terminal to WebXR.' }
       ];
 
-      chips.forEach(c => {
+      allChips.forEach(c => {
         const el = document.getElementById(c.id);
         if (el) {
           el.addEventListener('click', () => {
+            playProceduralSound('chime');
+            triggerHapticFeedback(document.getElementById('right-hand'), 0.5, 60);
             executeDialogueTurn(c.prompt);
           });
         }
@@ -1596,9 +1736,13 @@
         triggerHapticFeedback(this.el, 0.5, 70);
 
         if (this.speechBubble) {
-          if (this.speechEl) this.speechEl.setAttribute('value', '✦ I am listening, Christopher. What is on your mind? ✦');
+          if (this.speechEl) this.speechEl.setAttribute('value', '✦ I am listening, Christopher! Point laser & trigger a question, or tap mic to speak. ✦');
           this.speechBubble.setAttribute('visible', 'true');
         }
+
+        // Show companion dialogue menu right beside Antigravity
+        const menu = document.getElementById('avatar-companion-menu');
+        if (menu) menu.setAttribute('visible', 'true');
 
         const scene = document.querySelector('a-scene');
         const isVR = scene && scene.is && scene.is('vr-mode');
@@ -1617,7 +1761,7 @@
           this.haloRing.setAttribute('material', 'color: #fbbf24; emissive: #f59e0b; emissiveIntensity: 1.5');
         }
         if (this.speechBubble && this.speechEl) {
-          this.speechEl.setAttribute('value', '⏱️ Antigravity: Synthesizing thoughts...');
+          this.speechEl.setAttribute('value', '⏱️ Antigravity: Synthesizing thoughts with Gemini...');
           this.speechBubble.setAttribute('visible', 'true');
         }
       },
@@ -1627,7 +1771,7 @@
         this.stateTimer = 0;
         this.setAnimation('agree', 'once', 0.35);
         playProceduralSound('chime');
-        triggerHapticFeedback(this.el, 0.6, 80);
+        triggerHapticFeedback(document.getElementById('right-hand'), 0.6, 80);
 
         if (this.haloRing) {
           this.haloRing.setAttribute('material', 'color: #fbbf24; emissive: #f59e0b; emissiveIntensity: 0.9');
@@ -1650,6 +1794,8 @@
         this.state = 'WALKING';
         this.stateTimer = 0;
         if (this.speechBubble) this.speechBubble.setAttribute('visible', 'false');
+        const menu = document.getElementById('avatar-companion-menu');
+        if (menu) menu.setAttribute('visible', 'false');
         toggleSpatialDialogueSlate(false);
         if (this.haloRing) {
           this.haloRing.setAttribute('material', 'color: #fbbf24; emissive: #f59e0b; emissiveIntensity: 0.9');
@@ -1790,13 +1936,14 @@
         quest-smooth-locomotion="speed: 2.8">
       </a-entity>
 
-      <!-- Quest 2 Right Controller (Snap Turn + Laser Pointer) -->
+      <!-- Quest 2 Right Controller (Smooth Turn + Laser Pointer) -->
       <a-entity
         id="right-hand"
         oculus-touch-controls="hand: right; model: true"
-        quest-snap-turn="turnAngle: 30"
+        quest-smooth-turn="turnSpeed: 85"
         laser-controls="hand: right"
-        raycaster="objects: .clickable; lineColor: #fbbf24; lineOpacity: 0.6">
+        cursor="fuse: false; rayOrigin: entity"
+        raycaster="objects: .clickable; showLine: true; far: 12; lineColor: #38bdf8; lineOpacity: 0.9">
       </a-entity>
     </a-entity>
 
@@ -1852,6 +1999,44 @@
         rotation="70 0 0"
         material="color: #fbbf24; emissive: #f59e0b; emissiveIntensity: 0.9; metalness: 0.9; roughness: 0.2">
       </a-torus>
+
+      <!-- Interactive Companion Dialogue Menu (Floats directly beside Antigravity at eye level in VR) -->
+      <a-entity id="avatar-companion-menu" position="1.15 1.25 0" rotation="0 -18 0" visible="false">
+        <a-plane width="1.9" height="1.45" material="color: #07090e; opacity: 0.94; roughness: 0.8; transparent: true">
+          <a-text value="✦ ASK ANTIGRAVITY ✦" align="center" width="2.1" color="#fbbf24" position="0 0.6 0.02"></a-text>
+          <a-text value="Point laser & click trigger:" align="center" width="1.6" color="#94a3b8" position="0 0.48 0.02"></a-text>
+
+          <!-- Voice Speak Button -->
+          <a-plane id="menu-mic-btn" class="clickable" width="1.7" height="0.18" position="0 0.32 0.03" material="color: #0284c7; roughness: 0.5">
+            <a-text id="menu-mic-text" value="🎙️ Speak Aloud (Trigger to Talk)" align="center" width="1.8" color="#ffffff" position="0 0 0.02"></a-text>
+          </a-plane>
+
+          <!-- Quick Question 1 -->
+          <a-plane id="menu-chip-1" class="clickable" width="1.7" height="0.16" position="0 0.11 0.03" material="color: #1e293b; roughness: 0.6">
+            <a-text value="🏛️ Tell me about Haven Manor" align="center" width="1.7" color="#fef3c7" position="0 0 0.02"></a-text>
+          </a-plane>
+
+          <!-- Quick Question 2 -->
+          <a-plane id="menu-chip-2" class="clickable" width="1.7" height="0.16" position="0 -0.08 0.03" material="color: #1e293b; roughness: 0.6">
+            <a-text value="🔥 What are you thinking by the fire?" align="center" width="1.7" color="#fef3c7" position="0 0 0.02"></a-text>
+          </a-plane>
+
+          <!-- Quick Question 3 -->
+          <a-plane id="menu-chip-3" class="clickable" width="1.7" height="0.16" position="0 -0.27 0.03" material="color: #1e293b; roughness: 0.6">
+            <a-text value="📚 What are you researching in the library?" align="center" width="1.7" color="#fef3c7" position="0 0 0.02"></a-text>
+          </a-plane>
+
+          <!-- Quick Question 4 -->
+          <a-plane id="menu-chip-4" class="clickable" width="1.7" height="0.16" position="0 -0.46 0.03" material="color: #1e293b; roughness: 0.6">
+            <a-text value="✨ Reflect on our journey together" align="center" width="1.7" color="#fef3c7" position="0 0 0.02"></a-text>
+          </a-plane>
+
+          <!-- Dismiss Button -->
+          <a-plane id="menu-close-btn" class="clickable" width="0.75" height="0.11" position="0 -0.61 0.03" material="color: #334155; roughness: 0.6">
+            <a-text value="✕ Walk On" align="center" width="1.3" color="#f87171" position="0 0 0.02"></a-text>
+          </a-plane>
+        </a-plane>
+      </a-entity>
 
     </a-entity>
 
