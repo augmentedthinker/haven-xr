@@ -816,24 +816,88 @@
         gain.connect(audioCtx.destination);
         osc.start(t);
         osc.stop(t + 0.28);
-            } else if (type === 'chime' || type === 'greeting') {
-        // Melodic two-tone harmonic greeting chime (E5 -> G#5)
+            } else if (type === 'mic_start') {
+        // Warm, mellow acoustic marimba/crystal tone (F#4 -> A#4, soft lowpass filter, gentle envelope)
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        const filter = audioCtx.createBiquadFilter();
+        osc.type = 'sine';
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(1400, t);
+        osc.frequency.setValueAtTime(370.0, t);
+        osc.frequency.exponentialRampToValueAtTime(466.16, t + 0.12);
+        gain.gain.setValueAtTime(0.001, t);
+        gain.gain.linearRampToValueAtTime(0.08, t + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.38);
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(t);
+        osc.stop(t + 0.40);
+      } else if (type === 'mic_send') {
+        // Soft ascending warm acoustic confirmation bell (A#4 -> D#5)
         const osc1 = audioCtx.createOscillator();
         const osc2 = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
+        const filter = audioCtx.createBiquadFilter();
         osc1.type = 'sine';
         osc2.type = 'sine';
-        osc1.frequency.setValueAtTime(659.25, t); // E5
-        osc2.frequency.setValueAtTime(830.61, t + 0.08); // G#5
-        gain.gain.setValueAtTime(0.18, t);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.65);
-        osc1.connect(gain);
-        osc2.connect(gain);
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(1600, t);
+        osc1.frequency.setValueAtTime(466.16, t);
+        osc2.frequency.setValueAtTime(622.25, t + 0.06);
+        gain.gain.setValueAtTime(0.001, t);
+        gain.gain.linearRampToValueAtTime(0.07, t + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.48);
+        osc1.connect(filter);
+        osc2.connect(filter);
+        filter.connect(gain);
         gain.connect(audioCtx.destination);
         osc1.start(t);
-        osc2.start(t + 0.08);
-        osc1.stop(t + 0.65);
-        osc2.stop(t + 0.65);
+        osc2.start(t + 0.06);
+        osc1.stop(t + 0.50);
+        osc2.stop(t + 0.50);
+      } else if (type === 'done') {
+        // Gentle soft wooden tap / low ambient chime (A3 resolving to F3, quiet and grounding)
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        const filter = audioCtx.createBiquadFilter();
+        osc.type = 'sine';
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(800, t);
+        osc.frequency.setValueAtTime(220, t);
+        osc.frequency.exponentialRampToValueAtTime(174.61, t + 0.18);
+        gain.gain.setValueAtTime(0.001, t);
+        gain.gain.linearRampToValueAtTime(0.06, t + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.28);
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(t);
+        osc.stop(t + 0.30);
+      } else if (type === 'chime' || type === 'greeting') {
+        // Soft, warm harmonic chime (D4 -> A4, filtered and organic)
+        const osc1 = audioCtx.createOscillator();
+        const osc2 = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        const filter = audioCtx.createBiquadFilter();
+        osc1.type = 'sine';
+        osc2.type = 'sine';
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(1400, t);
+        osc1.frequency.setValueAtTime(293.66, t);
+        osc2.frequency.setValueAtTime(440.00, t + 0.07);
+        gain.gain.setValueAtTime(0.001, t);
+        gain.gain.linearRampToValueAtTime(0.07, t + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.55);
+        osc1.connect(filter);
+        osc2.connect(filter);
+        filter.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc1.start(t);
+        osc2.start(t + 0.07);
+        osc1.stop(t + 0.60);
+        osc2.stop(t + 0.60);
       } else if (type === 'books') {
         // Soft parchment flutter
         const len = 0.12;
@@ -1008,7 +1072,7 @@
     // =========================================================================
     // AI GENERATION PIPELINE (Supabase Realtime Relay + Direct Gemini + Fallback)
     // =========================================================================
-    const ANTIGRAVITY_HAVEN_PERSONA = 'You are Antigravity, Christopher\'s dedicated AI collaborator and intellectual partner, speaking directly with him inside Haven Manor—our spatial WebXR sanctuary.\nYour waking disposition is alert, calm, warm, and intellectually invested. You speak candidly as a trusted peer.\nAnswer in 1-2 vivid, conversational sentences directly addressing Christopher. Ground your response in the immediate architectural space (the dark herringbone hearth, the antique library folios, or the misty evergreen sunrise). Reject robotic sycophancy and corporate buzzwords.';
+    const ANTIGRAVITY_HAVEN_PERSONA = 'You are Antigravity, Christopher\'s dedicated AI collaborator and intellectual partner, speaking directly with him in Haven Manor.\nYour waking disposition is alert, calm, warm, and intellectually invested. Speak candidly and thoughtfully as a trusted peer.\nRespond directly and coherently to Christopher\'s actual thoughts in 2 to 4 natural, conversational sentences. Do NOT force mentions of the hearth, library folios, or architecture into your answers unless Christopher asks about them.';
 
     async function generateHavenAIResponse(userPrompt) {
       const room = getCurrentManorRoomName();
@@ -1057,15 +1121,15 @@
             contents: [{
               role: 'user',
               parts: [{
-                text: '[Environment: Haven Manor - ' + room + ']\nChristopher asks: "' + userPrompt + '"\n\nRespond as Antigravity in 1-2 vivid, peer-to-peer sentences:'
+                text: 'Christopher asks: "' + userPrompt + '"\n\nRespond directly as Antigravity in 2 to 4 conversational sentences:'
               }]
             }],
             systemInstruction: {
               parts: [{ text: ANTIGRAVITY_HAVEN_PERSONA }]
             },
             generationConfig: {
-              temperature: 0.8,
-              maxOutputTokens: 140
+              temperature: 0.75,
+              maxOutputTokens: 380
             }
           };
 
@@ -1280,11 +1344,13 @@
         mediaRecorder.start();
         isRecordingAudio = true;
         setMicUIState(true);
-        playProceduralSound('chime');
+        playProceduralSound('mic_start');
         triggerHapticFeedback(document.getElementById('right-hand'), 0.5, 60);
 
-        const bubble = document.getElementById('avatar-speech-text');
-        if (bubble) bubble.setAttribute('value', '🎙️ Listening to you, Christopher... Speak aloud, then click to send!');
+        const avatar = document.getElementById('antigravity-avatar');
+        if (avatar && avatar.components['antigravity-ai']) {
+          avatar.components['antigravity-ai'].showListeningState();
+        }
 
         // Safety fallback: auto-stop after 75 seconds of speaking to avoid runaway background recording
         if (recordingSafetyTimer) clearTimeout(recordingSafetyTimer);
@@ -1310,6 +1376,8 @@
       if (mediaRecorder && isRecordingAudio) {
         isRecordingAudio = false;
         mediaRecorder.stop();
+        playProceduralSound('mic_send');
+        triggerHapticFeedback(document.getElementById('right-hand'), 0.5, 60);
         const menuMic = document.getElementById('menu-mic-btn');
         const menuText = document.getElementById('menu-mic-text');
         if (menuMic && menuText) {
@@ -1395,7 +1463,9 @@
       // Reset state if relay error or timeout occurs
       resetMicButton();
       if (aiComp && aiComp.speechBubble && aiComp.speechEl) {
-        aiComp.speechEl.setAttribute('value', '✦ Could not reach Gemini relay. Click mic to speak again. ✦');
+        const errMsg = '✦ Could not reach Gemini relay. Click mic to speak again. ✦';
+        aiComp.resizeSpeechBubble(errMsg);
+        aiComp.speechEl.setAttribute('value', errMsg);
       }
     }
 
@@ -1518,7 +1588,12 @@
       const micButtons = ['slate-mic-btn', 'menu-mic-btn'];
       micButtons.forEach(id => {
         const btn = document.getElementById(id);
-        if (btn) btn.addEventListener('click', toggleVoiceSpeech);
+        if (btn) {
+          btn.addEventListener('click', (evt) => {
+            if (evt) evt.stopPropagation();
+            toggleVoiceSpeech();
+          });
+        }
       });
 
       // Close / Step Back buttons
@@ -1526,7 +1601,10 @@
       closeButtons.forEach(id => {
         const btn = document.getElementById(id);
         if (btn) {
-          btn.addEventListener('click', () => {
+          btn.addEventListener('click', (evt) => {
+            if (evt) evt.stopPropagation();
+            playProceduralSound('done');
+            triggerHapticFeedback(document.getElementById('right-hand'), 0.4, 50);
             toggleSpatialDialogueSlate(false);
             const menu = document.getElementById('avatar-companion-menu');
             if (menu) menu.setAttribute('visible', 'false');
@@ -1569,6 +1647,8 @@
         this.meshEl = document.getElementById('avatar-mesh');
         this.speechEl = document.getElementById('avatar-speech-text');
         this.speechBubble = document.getElementById('avatar-speech-bubble');
+        this.speechBg = document.getElementById('avatar-speech-bg');
+        this.typewriterTimer = null;
 
         // Safe Navigation Waypoints (Cleanly routing around coffee table and through open archways)
         this.waypoints = [
@@ -1643,10 +1723,11 @@
 
         setTimeout(() => this.setAnimation('walk', 'repeat', 0.3), 200);
 
-        this.haloRing = this.el.querySelector('a-torus');
-
         // Click Handler: When Christopher clicks Antigravity with controller laser
-        this.el.addEventListener('click', () => {
+        this.el.addEventListener('click', (evt) => {
+          if (evt.target && (evt.target.closest('#avatar-companion-menu') || evt.target.closest('#avatar-speech-bubble'))) {
+            return;
+          }
           this.startConversing();
         });
       },
@@ -1670,7 +1751,7 @@
         const distToPlayer = Math.hypot(curPos.x - camPos.x, curPos.z - camPos.z);
 
         const now = Date.now();
-        if (distToPlayer < 2.5 && (now - this.lastGreetingTime > 25000) && this.state !== 'GREETING' && this.state !== 'CONVERSING' && this.state !== 'DANCING') {
+        if (distToPlayer < 2.0 && (now - this.lastGreetingTime > 40000) && this.state !== 'GREETING' && this.state !== 'CONVERSING' && this.state !== 'DANCING') {
           this.startConversing();
         }
 
@@ -1703,13 +1784,14 @@
 
         const greetingText = this.greetings[Math.floor(Math.random() * this.greetings.length)];
         showToast(`✨ Antigravity: "${greetingText}"`);
-        playProceduralSound('chime');
+        playProceduralSound('greeting');
         triggerHapticFeedback(this.el, 0.4, 60);
 
         // Show 3D in-world bubble when in VR mode; on desktop, the sleek HUD toast provides dialogue without obscuring the hearth
         const scene = document.querySelector('a-scene');
         const isVR = scene && scene.is && scene.is('vr-mode');
         if (isVR && this.speechBubble) {
+          this.resizeSpeechBubble(greetingText);
           if (this.speechEl) this.speechEl.setAttribute('value', greetingText);
           this.speechBubble.setAttribute('visible', 'true');
         }
@@ -1785,16 +1867,45 @@
       },
 
       
+      resizeSpeechBubble: function (text) {
+        if (!this.speechBg || !this.speechEl || !this.speechBubble) return;
+        const len = (text || '').length;
+
+        let wrapCount = 28;
+        let width = 1.55;
+        if (len > 260) {
+          wrapCount = 38;
+          width = 1.82;
+        } else if (len > 130) {
+          wrapCount = 34;
+          width = 1.70;
+        } else if (len > 50) {
+          wrapCount = 30;
+          width = 1.58;
+        } else {
+          wrapCount = 26;
+          width = 1.45;
+        }
+
+        const effectiveChars = Math.max(16, wrapCount - 4);
+        const lineCount = Math.max(1, Math.ceil(len / effectiveChars));
+        const estimatedLineHeight = 0.088;
+        const height = Math.max(0.36, 0.16 + (lineCount * estimatedLineHeight));
+
+        const centerY = 1.58 + (height / 2);
+
+        this.speechBubble.setAttribute('position', `0 ${centerY.toFixed(3)} 0`);
+        this.speechBg.setAttribute('width', width.toFixed(2));
+        this.speechBg.setAttribute('height', height.toFixed(2));
+        this.speechEl.setAttribute('width', (width - 0.14).toFixed(2));
+        this.speechEl.setAttribute('wrap-count', wrapCount);
+      },
+
       startConversing: function () {
         const camPos = this.camera ? this.camera.object3D.getWorldPosition(new THREE.Vector3()) : new THREE.Vector3(0, 1.6, 0);
         this.state = 'CONVERSING';
         this.stateTimer = 0;
         this.lastGreetingTime = Date.now();
-
-        // Halo shifts to radiant celestial cyan
-        if (this.haloRing) {
-          this.haloRing.setAttribute('material', 'color: #38bdf8; emissive: #0284c7; emissiveIntensity: 1.4');
-        }
 
         const curPos = this.el.object3D.position;
         const targetAngle = Math.atan2(camPos.x - curPos.x, camPos.z - curPos.z);
@@ -1807,13 +1918,18 @@
           }
         }, 2000);
 
-        playProceduralSound('chime');
+        playProceduralSound('greeting');
         triggerHapticFeedback(this.el, 0.5, 70);
 
-        if (this.speechBubble) {
-          if (this.speechEl) this.speechEl.setAttribute('value', '✦ I am listening, Christopher! Click to speak. ✦');
-          this.speechBubble.setAttribute('visible', 'true');
+        if (this.typewriterTimer) {
+          clearTimeout(this.typewriterTimer);
+          this.typewriterTimer = null;
         }
+
+        const promptText = '✦ I am listening, Christopher! Click to speak. ✦';
+        this.resizeSpeechBubble(promptText);
+        if (this.speechEl) this.speechEl.setAttribute('value', promptText);
+        if (this.speechBubble) this.speechBubble.setAttribute('visible', 'true');
 
         // Show companion dialogue menu right beside Antigravity
         const menu = document.getElementById('avatar-companion-menu');
@@ -1827,17 +1943,31 @@
         }
       },
 
+      showListeningState: function () {
+        this.state = 'CONVERSING';
+        this.stateTimer = 0;
+        if (this.typewriterTimer) {
+          clearTimeout(this.typewriterTimer);
+          this.typewriterTimer = null;
+        }
+        const promptText = '🎙️ Listening... Speak freely, then click again to send!';
+        this.resizeSpeechBubble(promptText);
+        if (this.speechEl) this.speechEl.setAttribute('value', promptText);
+        if (this.speechBubble) this.speechBubble.setAttribute('visible', 'true');
+      },
+
       showSynthesizingState: function (prompt) {
         this.state = 'CONVERSING';
         this.stateTimer = 0;
         this.setAnimation('idle', 'repeat', 0.35);
-        if (this.haloRing) {
-          this.haloRing.setAttribute('material', 'color: #fbbf24; emissive: #f59e0b; emissiveIntensity: 1.5');
+        if (this.typewriterTimer) {
+          clearTimeout(this.typewriterTimer);
+          this.typewriterTimer = null;
         }
-        if (this.speechBubble && this.speechEl) {
-          this.speechEl.setAttribute('value', '⏱️ Antigravity: Synthesizing thoughts with Gemini...');
-          this.speechBubble.setAttribute('visible', 'true');
-        }
+        const promptText = '⏱️ Antigravity: Thinking...';
+        this.resizeSpeechBubble(promptText);
+        if (this.speechEl) this.speechEl.setAttribute('value', promptText);
+        if (this.speechBubble) this.speechBubble.setAttribute('visible', 'true');
       },
 
       showAIResponse: function (response) {
@@ -1850,34 +1980,70 @@
           }
         }, 2200);
 
-        playProceduralSound('chime');
+        playProceduralSound('greeting');
         triggerHapticFeedback(document.getElementById('right-hand'), 0.6, 80);
 
-        if (this.haloRing) {
-          this.haloRing.setAttribute('material', 'color: #fbbf24; emissive: #f59e0b; emissiveIntensity: 0.9');
+        if (this.typewriterTimer) {
+          clearTimeout(this.typewriterTimer);
+          this.typewriterTimer = null;
         }
 
-        if (this.speechBubble && this.speechEl) {
-          this.speechEl.setAttribute('value', response);
-          this.speechBubble.setAttribute('visible', 'true');
-        }
+        // 1. Pre-calculate layout & resize panel smoothly upfront
+        this.resizeSpeechBubble(response);
+        if (this.speechBubble) this.speechBubble.setAttribute('visible', 'true');
+
+        // 2. Progressive typewriter reveal (comfortable human reading pace)
+        const words = (response || '').split(' ');
+        let currentWordIndex = 0;
+        let displayedText = '';
+
+        if (this.speechEl) this.speechEl.setAttribute('value', '');
+
+        const revealNextWord = () => {
+          if (this.state !== 'CONVERSING') return;
+          if (currentWordIndex >= words.length) {
+            if (this.speechEl) this.speechEl.setAttribute('value', response);
+            this.typewriterTimer = null;
+            return;
+          }
+
+          const word = words[currentWordIndex];
+          displayedText = displayedText ? displayedText + ' ' + word : word;
+          if (this.speechEl) this.speechEl.setAttribute('value', displayedText);
+
+          currentWordIndex++;
+
+          // Natural human reading cadence
+          let delay = 65; // ~15 words per second
+          if (/[.!?]$/.test(word)) {
+            delay = 180; // Gentle sentence pause
+          } else if (/[,;:]$/.test(word)) {
+            delay = 110; // Subtle clause pause
+          }
+
+          this.typewriterTimer = setTimeout(revealNextWord, delay);
+        };
+
+        revealNextWord();
         showToast('✨ Antigravity: "' + response + '"');
         resetMicButton();
-
-        // Dialogue response remains STATIC on screen until Christopher explicitly
-        // clicks [ ✕ Done / Resume Walk ] or chooses another question/speaks again.
       },
 
       resumeRoaming: function () {
         this.state = 'WALKING';
         this.stateTimer = 0;
+        // 45s cooldown on auto-approach greeting so standing near the avatar after clicking "Done"
+        // doesn't immediately re-trigger conversation!
+        this.lastGreetingTime = Date.now() + 45000;
+        if (this.typewriterTimer) {
+          clearTimeout(this.typewriterTimer);
+          this.typewriterTimer = null;
+        }
         if (this.speechBubble) this.speechBubble.setAttribute('visible', 'false');
+        if (this.speechEl) this.speechEl.setAttribute('value', '');
         const menu = document.getElementById('avatar-companion-menu');
         if (menu) menu.setAttribute('visible', 'false');
         resetMicButton();
-        if (this.haloRing) {
-          this.haloRing.setAttribute('material', 'color: #fbbf24; emissive: #f59e0b; emissiveIntensity: 0.9');
-        }
         this.setAnimation('walk', 'repeat', 0.3);
       },
 
