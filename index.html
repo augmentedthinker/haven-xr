@@ -2479,14 +2479,17 @@
     <a-assets timeout="10000">
       <img id="tex-wood" src="./textures/wood_floor.jpg">
       <img id="tex-fireplace" src="./textures/fireplace.jpg">
+      <img id="tex-fireplace-hearth" src="./textures/fireplace_hearth.png">
       <img id="tex-books" src="./textures/bookshelves.jpg">
       <img id="tex-books-archive" src="./textures/bookshelves_archive.jpg">
       <img id="tex-rug" src="./textures/persian_rug.png">
       <img id="tex-library-rug" src="./textures/library_rug.png">
       <img id="tex-door" src="./textures/exterior_door.jpg">
+      <img id="tex-door-cutout" src="./textures/exterior_door.png">
       <img id="tex-plaster" src="./textures/plaster_wall.jpg">
       <img id="tex-terracotta" src="./textures/terracotta_floor.jpg">
       <img id="tex-conservatory-doors" src="./textures/conservatory_doors.jpg">
+      <img id="tex-conservatory-window-wall" src="./textures/conservatory_window_wall.png">
       <img id="tex-window-frame" src="./textures/window_frame.png">
       <img id="tex-terrace-balustrade" src="./textures/terrace_balustrade.png">
       <img id="tex-dawn-vista" src="./textures/panoramic_dawn_vista.jpg">
@@ -2624,17 +2627,18 @@
     <a-box position="0 3.5 0" width="8" height="0.22" depth="0.28" material="color: #2b1810; roughness: 0.8"></a-box>
     <a-box position="0 3.5 2" width="8" height="0.22" depth="0.28" material="color: #2b1810; roughness: 0.8"></a-box>
 
-    <!-- North Wall: Fieldstone Fireplace & Hearth -->
-    <!-- Central Stone Chimney & Hearth Breast -->
-    <a-box
+    <!-- North Wall: Solid Plaster Wall with Fieldstone Fireplace & Hearth Cutout -->
+    <a-plane position="0 1.8 -3.98" rotation="0 0 0" width="8" height="3.6" material="src: #tex-plaster; repeat: 3 2; roughness: 0.85; side: double"></a-plane>
+
+    <!-- Fieldstone Hearth & Roaring Fire Cutout (Isolated Decal) -->
+    <a-plane
       class="clickable"
-      interactive-prop="title: Roaring Fieldstone Hearth; hint: Reclaimed timber mantel and glowing cedar logs.; sound: wood"
-      position="0 1.8 -3.95"
+      interactive-prop="title: Roaring Fieldstone Hearth; hint: Reclaimed timber mantel and glowing cedar logs with hand-laid stone chimney.; sound: wood"
+      position="0 1.8 -3.92"
       width="3.6"
       height="3.6"
-      depth="0.25"
-      material="src: #tex-fireplace; roughness: 0.75">
-    </a-box>
+      material="src: #tex-fireplace-hearth; transparent: true; alphaTest: 0.1; roughness: 0.8; side: double">
+    </a-plane>
 
     <!-- Fireplace Dynamic Point Light (Warm Amber Flame Flicker) -->
     <a-entity
@@ -2643,32 +2647,25 @@
       fire-flicker="baseIntensity: 2.2; variance: 0.55; speed: 11">
     </a-entity>
 
-    <!-- North Wall Side Wings (Cream Plaster) -->
-    <a-plane position="-2.9 1.8 -3.98" rotation="0 0 0" width="2.2" height="3.6" material="src: #tex-plaster; repeat: 1 2; roughness: 0.85"></a-plane>
-    <a-plane position="2.9 1.8 -3.98" rotation="0 0 0" width="2.2" height="3.6" material="src: #tex-plaster; repeat: 1 2; roughness: 0.85"></a-plane>
+    <!-- South Wall: Solid Plaster Wall with Heavy Carved Oak Manor Exterior Door Cutout -->
+    <a-plane position="0 1.8 3.98" rotation="0 180 0" width="8" height="3.6" material="src: #tex-plaster; repeat: 3 2; roughness: 0.85; side: double"></a-plane>
 
-    <!-- South Wall: The Exterior Manor Threshold (The Door to the Outside) -->
-    <!-- Heavy Carved Oak Manor Exterior Door -->
-    <a-box
+    <!-- Heavy Carved Oak Manor Exterior Door Cutout (Isolated Decal) -->
+    <a-plane
       class="clickable"
-      interactive-prop="title: Exterior Manor Threshold; hint: Heavy oak door looking out onto the misty forest grounds. Exterior exploration opens next.; sound: door"
-      position="0 1.8 3.92"
+      interactive-prop="title: Exterior Manor Threshold; hint: Heavy carved oak door with wrought-iron strap hinges and lion head knocker.; sound: door"
+      position="0 1.7 3.92"
       rotation="0 180 0"
-      width="3.4"
-      height="3.6"
-      depth="0.2"
-      material="src: #tex-door; roughness: 0.7">
-    </a-box>
+      width="3.2"
+      height="3.4"
+      material="src: #tex-door-cutout; transparent: true; alphaTest: 0.1; roughness: 0.7; side: double">
+    </a-plane>
 
     <!-- Lantern above Exterior Door -->
     <a-entity position="0 2.9 3.65">
       <a-sphere radius="0.08" material="color: #fbbf24; emissive: #f59e0b; emissiveIntensity: 1.2"></a-sphere>
       <a-entity light="type: point; color: #fde047; intensity: 0.8; distance: 4.5; decay: 2;"></a-entity>
     </a-entity>
-
-    <!-- South Wall Side Wings -->
-    <a-plane position="-2.8 1.8 3.98" rotation="0 180 0" width="2.4" height="3.6" material="src: #tex-plaster; repeat: 1 2; roughness: 0.85"></a-plane>
-    <a-plane position="2.8 1.8 3.98" rotation="0 180 0" width="2.4" height="3.6" material="src: #tex-plaster; repeat: 1 2; roughness: 0.85"></a-plane>
 
     <!-- Ornate Persian Area Rug in Central Foyer (Isolated Alpha Cutout over Oak Parquet) -->
     <a-plane
@@ -2721,27 +2718,27 @@
     <a-box position="-8 3.5 0" width="8" height="0.22" depth="0.28" material="color: #2b1810; roughness: 0.8"></a-box>
     <a-box position="-8 3.5 2" width="8" height="0.22" depth="0.28" material="color: #2b1810; roughness: 0.8"></a-box>
 
-    <!-- West Outer Wall: Floor-to-Ceiling Mahogany Bookshelves -->
+    <!-- West Outer Wall: Floor-to-Ceiling Solid Mahogany Bookshelves (Edge-to-Edge Solid Bookcase) -->
     <a-box
       class="clickable"
-      interactive-prop="title: Grand Library Bookshelves; hint: Hundreds of antique leather-bound volumes, chronicles, and blueprints.; sound: books"
+      interactive-prop="title: Grand Library Bookshelves; hint: Floor-to-ceiling solid mahogany shelves packed with hundreds of antique leather-bound volumes.; sound: books"
       position="-11.9 1.8 0"
       rotation="0 90 0"
       width="8"
       height="3.6"
       depth="0.2"
-      material="src: #tex-books; repeat: 2 1; roughness: 0.7">
+      material="src: #tex-books; repeat: 1 1; roughness: 0.7">
     </a-box>
 
-    <!-- North Library Wall: Secondary Bookshelf Wing (Distinct Archive Texture with Celestial Globe & Scrolls) -->
+    <!-- North Library Wall: Secondary Solid Bookshelf Wing (Distinct Antique Folios & Archives) -->
     <a-box
       class="clickable"
-      interactive-prop="title: Ancient Tomes & Anthologies; hint: Gilded folios, celestial globe, astrolabes, and architectural scrolls.; sound: books"
+      interactive-prop="title: Ancient Tomes & Anthologies; hint: Floor-to-ceiling dark walnut shelves packed with vintage manuscripts and gilded folios.; sound: books"
       position="-8 1.8 -3.9"
       width="8"
       height="3.6"
       depth="0.2"
-      material="src: #tex-books-archive; repeat: 2 1; roughness: 0.7">
+      material="src: #tex-books-archive; repeat: 1 1; roughness: 0.7">
     </a-box>
 
     <!-- South Library Wall: Plaster with Reading Chair -->
@@ -2784,41 +2781,31 @@
       material="src: #tex-terracotta; repeat: 4 4; roughness: 0.55; metalness: 0.05">
     </a-plane>
 
-    <!-- Sunroom Glass Atrium Ceiling -->
+    <!-- Sunroom Solid Plaster Ceiling with Timber Crossbeams -->
     <a-plane
       position="8 3.6 0"
       rotation="90 0 0"
       width="8"
       height="8"
-      material="color: #e0f2fe; opacity: 0.35; transparent: true; roughness: 0.1">
+      material="src: #tex-plaster; repeat: 3 3; roughness: 0.9">
     </a-plane>
-    <!-- Skylight Steel Trusses -->
-    <a-box position="8 3.58 -2" width="8" height="0.08" depth="0.1" material="color: #0f172a"></a-box>
-    <a-box position="8 3.58 0" width="8" height="0.08" depth="0.1" material="color: #0f172a"></a-box>
-    <a-box position="8 3.58 2" width="8" height="0.08" depth="0.1" material="color: #0f172a"></a-box>
+    <!-- Dark Timber Ceiling Crossbeams -->
+    <a-box position="8 3.5 -2" width="8" height="0.22" depth="0.28" material="color: #2b1810; roughness: 0.8"></a-box>
+    <a-box position="8 3.5 0" width="8" height="0.22" depth="0.28" material="color: #2b1810; roughness: 0.8"></a-box>
+    <a-box position="8 3.5 2" width="8" height="0.22" depth="0.28" material="color: #2b1810; roughness: 0.8"></a-box>
 
-    <!-- East Outer Wall: Architectural Window Portal with Multi-Layered Optical Motion Parallax -->
-    <!-- Flanking Plaster Wall Wings (North and South of Grand Window) -->
-    <a-plane position="11.95 1.8 -2.9" rotation="0 -90 0" width="2.2" height="3.6" material="src: #tex-plaster; repeat: 1 2; roughness: 0.85; side: double"></a-plane>
-    <a-plane position="11.95 1.8 2.9" rotation="0 -90 0" width="2.2" height="3.6" material="src: #tex-plaster; repeat: 1 2; roughness: 0.85; side: double"></a-plane>
-    
-    <!-- Window Surround Arch Lintel & Low Wall Sill -->
-    <a-box position="11.95 3.45 0" rotation="0 -90 0" width="3.6" height="0.3" depth="0.2" material="color: #2b1810; roughness: 0.8"></a-box>
-    <a-box position="11.95 0.25 0" rotation="0 -90 0" width="3.6" height="0.5" depth="0.2" material="src: #tex-plaster; repeat: 1 0.5; roughness: 0.85"></a-box>
-    <a-box position="11.92 0.52 0" rotation="0 -90 0" width="3.8" height="0.08" depth="0.3" material="color: #1e293b; roughness: 0.4"></a-box>
-
-    <!-- PARALLAX LAYER 1 (Fore): Wrought-Iron Conservatory Arched Window Frame with Clear Cutout Panes (X = 11.91m) -->
+    <!-- East Outer Wall: Solid Plaster Wall with Central Cutout Window Gallery -->
     <a-plane
       class="clickable"
-      interactive-prop="title: Sunrise Conservatory Gallery; hint: Wrought-iron arched mullions framing the dawn mountain horizon.; sound: wood"
-      position="11.91 1.9 0"
+      interactive-prop="title: Sunrise Conservatory Gallery; hint: Arched wrought-iron conservatory window overlooking the terrace and sunrise.; sound: wood"
+      position="11.95 1.8 0"
       rotation="0 -90 0"
-      width="3.6"
-      height="2.7"
-      material="src: #tex-window-frame; transparent: true; alphaTest: 0.15; roughness: 0.3; metalness: 0.3; side: double">
+      width="8"
+      height="3.6"
+      material="src: #tex-conservatory-window-wall; transparent: true; alphaTest: 0.15; roughness: 0.7; side: double">
     </a-plane>
 
-    <!-- PARALLAX LAYER 2 (Mid): Stone Garden Balustrade with Climbing Roses & Ivy (X = 15.0m) -->
+    <!-- East Parallax Layer 2: Stone Terrace Balustrade & Climbing Roses (X = 15.0m) -->
     <a-plane
       position="15.0 1.25 0"
       rotation="0 -90 0"
@@ -2827,7 +2814,7 @@
       material="src: #tex-terrace-balustrade; transparent: true; alphaTest: 0.15; roughness: 0.85; side: double">
     </a-plane>
 
-    <!-- PARALLAX LAYER 3 (Deep): Panoramic Dawn Alpine Vista & Rising Sun (X = 28.0m) -->
+    <!-- East Parallax Layer 3: Panoramic Alpine Dawn Sunrise Vista (X = 28.0m) -->
     <a-plane
       position="28.0 4.0 0"
       rotation="0 -90 0"
@@ -2836,16 +2823,34 @@
       material="src: #tex-dawn-vista; shader: flat; side: double">
     </a-plane>
 
-    <!-- North Sunroom Wall: French Garden Double Doors (Opening out to Terrace Stairs) -->
-    <a-box
+    <!-- North Sunroom Wall: Matching Conservatory Window Wall (Facing Garden Terrace Vista) -->
+    <a-plane
       class="clickable"
-      interactive-prop="title: French Garden Double Doors; hint: Tall glass doors opening to stone terrace stairs, potted citrus, and lavender.; sound: door"
-      position="8 1.8 -3.9"
+      interactive-prop="title: North Garden Conservatory Window; hint: Morning light spilling across the terracotta tiles through arched wrought-iron panes.; sound: wood"
+      position="8 1.8 -3.95"
+      rotation="0 0 0"
       width="8"
       height="3.6"
-      depth="0.2"
-      material="src: #tex-conservatory-doors; repeat: 2 1; roughness: 0.4; metalness: 0.1">
-    </a-box>
+      material="src: #tex-conservatory-window-wall; transparent: true; alphaTest: 0.15; roughness: 0.7; side: double">
+    </a-plane>
+
+    <!-- North Parallax Layer 2: Stone Garden Balustrade (Z = -7.5m) -->
+    <a-plane
+      position="8 1.25 -7.5"
+      rotation="0 0 0"
+      width="7.0"
+      height="3.9"
+      material="src: #tex-terrace-balustrade; transparent: true; alphaTest: 0.15; roughness: 0.85; side: double">
+    </a-plane>
+
+    <!-- North Parallax Layer 3: Panoramic Mountain Dawn Vista (Z = -22.0m) -->
+    <a-plane
+      position="8 4.0 -22.0"
+      rotation="0 0 0"
+      width="32"
+      height="18"
+      material="src: #tex-dawn-vista; shader: flat; side: double">
+    </a-plane>
 
     <!-- South Sunroom Wall: Plaster with Conservatory Planters -->
     <a-plane position="8 1.8 3.98" rotation="0 180 0" width="8" height="3.6" material="src: #tex-plaster; repeat: 3 2; roughness: 0.85"></a-plane>
