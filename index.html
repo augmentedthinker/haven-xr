@@ -462,6 +462,231 @@
       return { x: currentX, z: currentZ };
     }
 
+    // =========================================================================
+    // HAVEN SPATIAL LANDMARK REGISTRY & EMBODIED ENVIRONMENTAL API
+    // =========================================================================
+    const HAVEN_LANDMARKS = {
+      hearth: {
+        id: 'hearth',
+        name: 'Fireplace Hearth',
+        room: 'The Central Hearth Foyer',
+        x: 0.0,
+        z: -2.3,
+        description: 'The roaring fieldstone hearth fire with warm crackling logs'
+      },
+      table: {
+        id: 'table',
+        name: 'Coffee Table',
+        room: 'The Central Hearth Foyer',
+        x: 0.0,
+        z: 0.6,
+        description: 'The central reclaimed wood coffee table and candle'
+      },
+      door: {
+        id: 'door',
+        name: 'Exterior Manor Threshold',
+        room: 'The Central Hearth Foyer',
+        x: 0.0,
+        z: 2.8,
+        description: 'The heavy carved oak door looking out toward the misty forest grounds'
+      },
+      library_arch: {
+        id: 'library_arch',
+        name: 'Library Archway',
+        room: 'Foyer / Library Arch',
+        x: -4.0,
+        z: 0.0,
+        description: 'The dark timber archway connecting the foyer to the library'
+      },
+      library_desk: {
+        id: 'library_desk',
+        name: 'Scholar Partner Desk',
+        room: 'The Antique Archive & Library',
+        x: -5.6,
+        z: 0.0,
+        description: 'The antique mahogany research desk with manuscripts and brass banker lamp'
+      },
+      bookshelves: {
+        id: 'bookshelves',
+        name: 'Antique Bookshelves',
+        room: 'The Antique Archive & Library',
+        x: -10.2,
+        z: -1.5,
+        description: 'The floor-to-ceiling library archives, tomes, and historical folios'
+      },
+      conservatory_arch: {
+        id: 'conservatory_arch',
+        name: 'Conservatory Archway',
+        room: 'Foyer / Conservatory Arch',
+        x: 4.0,
+        z: 0.0,
+        description: 'The sunlit double archway opening into the conservatory'
+      },
+      window: {
+        id: 'window',
+        name: 'Conservatory Sunrise Window Vista',
+        room: 'The Sunlit Conservatory',
+        x: 9.8,
+        z: 0.0,
+        description: 'The panoramic glass window overlooking misty evergreen pines and dawn sunrise'
+      },
+      conservatory_center: {
+        id: 'conservatory_center',
+        name: 'Conservatory Solarium',
+        room: 'The Sunlit Conservatory',
+        x: 7.5,
+        z: 0.0,
+        description: 'The sunlit solarium under the glass atrium ceiling and terracotta tile'
+      }
+    };
+
+    function resolveLandmarkKey(key) {
+      if (!key) return null;
+      const clean = key.toLowerCase().replace(/[^a-z0-9_]/g, '_');
+      if (HAVEN_LANDMARKS[clean]) return clean;
+      if (clean.includes('fire') || clean.includes('hearth')) return 'hearth';
+      if (clean.includes('table') || clean.includes('coffee')) return 'table';
+      if (clean.includes('desk') || clean.includes('partner') || clean.includes('scholar')) return 'library_desk';
+      if (clean.includes('book') || clean.includes('shelf') || clean.includes('shelves') || clean.includes('archive')) return 'bookshelves';
+      if (clean.includes('window') || clean.includes('vista') || clean.includes('glass') || clean.includes('pine')) return 'window';
+      if (clean.includes('conservatory') || clean.includes('sunroom') || clean.includes('solarium') || clean.includes('plant')) return 'conservatory_center';
+      if (clean.includes('door') || clean.includes('entrance') || clean.includes('threshold') || clean.includes('exit')) return 'door';
+      return null;
+    }
+
+    function buildManorPath(startPos, destPos) {
+      const getRoom = (x) => {
+        if (x < -4.0) return 'Library';
+        if (x > 4.0) return 'Conservatory';
+        return 'Foyer';
+      };
+
+      const startRoom = getRoom(startPos.x);
+      const destRoom = getRoom(destPos.x);
+      const path = [];
+
+      // If in different rooms, route through archway transitions!
+      if (startRoom === 'Foyer') {
+        if (destRoom === 'Library') {
+          path.push({ x: -4.0, z: 0.0 });
+        } else if (destRoom === 'Conservatory') {
+          path.push({ x: 4.0, z: 0.0 });
+        }
+      } else if (startRoom === 'Library') {
+        if (destRoom === 'Foyer') {
+          path.push({ x: -4.0, z: 0.0 });
+        } else if (destRoom === 'Conservatory') {
+          path.push({ x: -4.0, z: 0.0 });
+          path.push({ x: 0.0, z: 0.0 });
+          path.push({ x: 4.0, z: 0.0 });
+        }
+      } else if (startRoom === 'Conservatory') {
+        if (destRoom === 'Foyer') {
+          path.push({ x: 4.0, z: 0.0 });
+        } else if (destRoom === 'Library') {
+          path.push({ x: 4.0, z: 0.0 });
+          path.push({ x: 0.0, z: 0.0 });
+          path.push({ x: -4.0, z: 0.0 });
+        }
+      }
+
+      path.push({ x: destPos.x, z: destPos.z });
+      return path;
+    }
+
+    function getSpatialTelemetry() {
+      const avatarEl = document.getElementById('antigravity-avatar');
+      const headEl = document.getElementById('head') || document.querySelector('a-camera');
+
+      let avatarPos = { x: 0, z: -2.2 };
+      let playerPos = { x: 0, z: 1.2 };
+
+      if (avatarEl && avatarEl.object3D) {
+        avatarPos = {
+          x: parseFloat(avatarEl.object3D.position.x.toFixed(2)),
+          z: parseFloat(avatarEl.object3D.position.z.toFixed(2))
+        };
+      }
+
+      if (headEl && headEl.object3D) {
+        const worldPos = new THREE.Vector3();
+        headEl.object3D.getWorldPosition(worldPos);
+        playerPos = {
+          x: parseFloat(worldPos.x.toFixed(2)),
+          z: parseFloat(worldPos.z.toFixed(2))
+        };
+      }
+
+      const dist = Math.hypot(avatarPos.x - playerPos.x, avatarPos.z - playerPos.z);
+
+      const getRoomName = (x) => {
+        if (x < -4.0) return 'The Antique Archive & Library';
+        if (x > 4.0) return 'The Sunlit Conservatory';
+        return 'The Central Hearth Foyer';
+      };
+
+      let nearestLandmark = null;
+      let minLmDist = Infinity;
+      Object.keys(HAVEN_LANDMARKS).forEach(k => {
+        const lm = HAVEN_LANDMARKS[k];
+        const d = Math.hypot(avatarPos.x - lm.x, avatarPos.z - lm.z);
+        if (d < minLmDist) {
+          minLmDist = d;
+          nearestLandmark = lm;
+        }
+      });
+
+      return {
+        avatar: {
+          x: avatarPos.x,
+          z: avatarPos.z,
+          room: getRoomName(avatarPos.x),
+          nearestLandmark: nearestLandmark ? nearestLandmark.name : 'Central Foyer'
+        },
+        player: {
+          x: playerPos.x,
+          z: playerPos.z,
+          room: getRoomName(playerPos.x),
+          distanceToAvatar: parseFloat(dist.toFixed(1))
+        },
+        landmarks: Object.keys(HAVEN_LANDMARKS).map(k => ({
+          id: k,
+          name: HAVEN_LANDMARKS[k].name,
+          room: HAVEN_LANDMARKS[k].room
+        }))
+      };
+    }
+
+    function parseAndExecuteAvatarActions(rawResponse) {
+      if (!rawResponse) return '';
+      let cleanText = rawResponse;
+
+      const actionRegex = /\[ACTION:\s*([a-zA-Z0-9_]+)\s*,\s*target:\s*"?([a-zA-Z0-9_]+)"?\s*\]/i;
+      const match = rawResponse.match(actionRegex);
+
+      if (match) {
+        const actionType = match[1].toLowerCase();
+        const rawTarget = match[2];
+        cleanText = rawResponse.replace(actionRegex, '').trim();
+
+        console.log(`[Haven Action Dispatcher] 🎯 Action detected: ${actionType} -> ${rawTarget}`);
+
+        const avatar = document.getElementById('antigravity-avatar');
+        const aiComp = avatar ? avatar.components['antigravity-ai'] : null;
+
+        if (aiComp && actionType === 'walk_to') {
+          const resolvedKey = resolveLandmarkKey(rawTarget);
+          if (resolvedKey) {
+            setTimeout(() => {
+              aiComp.walkToLandmark(resolvedKey);
+            }, 1000);
+          }
+        }
+      }
+
+      return cleanText;
+    }
+
     // Helper: Generate Triplanar UV coordinates for buffer geometry
     function applyTriplanarUVs(geometry) {
       if (!geometry || !geometry.attributes || !geometry.attributes.position) return;
@@ -1099,6 +1324,7 @@
               queryId: queryId,
               prompt: userPrompt,
               room: room,
+              spatialContext: getSpatialTelemetry(),
               timestamp: Date.now()
             }
           });
@@ -1116,12 +1342,14 @@
       const geminiKey = HAVEN_CLOUD.geminiKey || localStorage.getItem('haven_gemini_key');
       if (geminiKey) {
         try {
+          const spatial = getSpatialTelemetry();
+          const spatialHint = `\n[Spatial Telemetry: Avatar at (${spatial.avatar.x}, ${spatial.avatar.z}) in ${spatial.avatar.room}. Christopher is at (${spatial.player.x}, ${spatial.player.z}) in ${spatial.player.room}, ${spatial.player.distanceToAvatar}m away. Landmarks: ${spatial.landmarks.map(l => l.id).join(', ')}. If asked to move/walk, append [ACTION: walk_to, target: "<landmark_id>"] at the very end.]\n`;
           const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=' + geminiKey.trim();
           const payload = {
             contents: [{
               role: 'user',
               parts: [{
-                text: 'Christopher asks: "' + userPrompt + '"\n\nRespond directly as Antigravity in 2 to 4 conversational sentences:'
+                text: 'Christopher asks: "' + userPrompt + '"' + spatialHint + '\nRespond directly as Antigravity in 2 to 4 conversational sentences:'
               }]
             }],
             systemInstruction: {
@@ -1415,6 +1643,7 @@
           // Supabase Realtime hard limit is 256 KB.
           // Chunk at 100,000 characters to ensure 100% reliable transmission regardless of speech duration.
           const CHUNK_SIZE = 100000;
+          const spatial = getSpatialTelemetry();
           if (base64Data.length <= CHUNK_SIZE) {
             await HAVEN_CLOUD.channel.send({
               type: 'broadcast',
@@ -1424,6 +1653,7 @@
                 audioBase64: base64Data,
                 mimeType: mimeType,
                 room: room,
+                spatialContext: spatial,
                 timestamp: Date.now()
               }
             });
@@ -1442,6 +1672,7 @@
                   chunkData: slice,
                   mimeType: mimeType,
                   room: room,
+                  spatialContext: spatial,
                   timestamp: Date.now()
                 }
               });
@@ -1453,7 +1684,8 @@
 
           const replyText = await relayPromise;
           resetMicButton();
-          if (aiComp) aiComp.showAIResponse(replyText);
+          const cleanReply = parseAndExecuteAvatarActions(replyText);
+          if (aiComp) aiComp.showAIResponse(cleanReply);
           return;
         } catch (err) {
           console.warn('Audio relay error:', err);
@@ -1491,11 +1723,14 @@
       const responseText = await generateHavenAIResponse(prompt);
       console.log('[HAVEN DIALOGUE] Antigravity: "' + responseText + '"');
 
+      // Strip motor action tags and dispatch physical locomotion if present
+      const cleanReply = parseAndExecuteAvatarActions(responseText);
+
       // 3. Render In-World Response
       if (aiComp) {
-        aiComp.showAIResponse(responseText);
+        aiComp.showAIResponse(cleanReply);
       } else {
-        showToast('✨ Antigravity: "' + responseText + '"');
+        showToast('✨ Antigravity: "' + cleanReply + '"');
       }
 
       // 4. Broadcast Turn to Supabase Realtime
@@ -1506,7 +1741,7 @@
           payload: {
             speaker: 'Christopher',
             prompt: prompt,
-            response: responseText,
+            response: cleanReply,
             room: room,
             timestamp: new Date().toISOString()
           }
@@ -1666,7 +1901,10 @@
         ];
 
         this.currentWpIndex = 0;
-        this.state = 'WALKING'; // WALKING | WAITING | GREETING | DANCING
+        this.state = 'WALKING'; // WALKING | WAITING | GREETING | DANCING | TARGET_WALK
+        this.targetPath = [];
+        this.targetLandmark = null;
+        this.targetPathIndex = 0;
         this.stateTimer = 0;
         this.lastGreetingTime = 0;
         this.animTime = 0;
@@ -1763,6 +2001,8 @@
           if (distToPlayer > 5.5) {
             this.resumeRoaming();
           }
+        } else if (this.state === 'TARGET_WALK') {
+          this.updateTargetWalk(deltaSec, camPos);
         } else if (this.state === 'GREETING') {
           this.updateGreeting(deltaSec, camPos);
         } else if (this.state === 'WALKING') {
@@ -1864,6 +2104,111 @@
           this.stateTimer = 0;
           this.setAnimation('walk', 'repeat', 0.3);
         }
+      },
+
+      walkToLandmark: function (targetKey) {
+        const resolvedKey = resolveLandmarkKey(targetKey);
+        if (!resolvedKey || !HAVEN_LANDMARKS[resolvedKey]) {
+          console.warn('[antigravity-ai] Unknown landmark:', targetKey);
+          return;
+        }
+
+        const lm = HAVEN_LANDMARKS[resolvedKey];
+        const curPos = this.el.object3D.position;
+        const path = buildManorPath(curPos, { x: lm.x, z: lm.z });
+
+        console.log(`[antigravity-ai] 🚶 Walking to ${lm.name} (${resolvedKey}) via ${path.length} waypoints:`, path);
+
+        this.targetLandmark = lm;
+        this.targetPath = path;
+        this.targetPathIndex = 0;
+        this.state = 'TARGET_WALK';
+        this.stateTimer = 0;
+        this.setAnimation('walk', 'repeat', 0.3);
+
+        // Hide dialogue menu while in transit
+        const menu = document.getElementById('avatar-companion-menu');
+        if (menu) menu.setAttribute('visible', 'false');
+
+        showToast(`✨ Antigravity: Heading to ${lm.name}...`);
+        playProceduralSound('chime');
+        triggerHapticFeedback(this.el, 0.4, 50);
+      },
+
+      updateTargetWalk: function (deltaSec, camPos) {
+        if (!this.targetPath || this.targetPathIndex >= this.targetPath.length) {
+          this.arriveAtTarget();
+          return;
+        }
+
+        const curPos = this.el.object3D.position;
+        const targetWp = this.targetPath[this.targetPathIndex];
+        const dx = targetWp.x - curPos.x;
+        const dz = targetWp.z - curPos.z;
+        const dist = Math.hypot(dx, dz);
+
+        // Check if reached current waypoint
+        if (dist < 0.42) {
+          this.targetPathIndex++;
+          if (this.targetPathIndex >= this.targetPath.length) {
+            this.arriveAtTarget();
+            return;
+          }
+        }
+
+        const nextWp = this.targetPath[this.targetPathIndex];
+        const ndx = nextWp.x - curPos.x;
+        const ndz = nextWp.z - curPos.z;
+        const targetAngle = Math.atan2(ndx, ndz);
+
+        this.el.object3D.rotation.y = THREE.MathUtils.lerp(this.el.object3D.rotation.y, targetAngle, deltaSec * 5);
+
+        const speed = this.data.speed * deltaSec;
+        const moveX = Math.sin(targetAngle) * speed;
+        const moveZ = Math.cos(targetAngle) * speed;
+
+        const newPos = resolveMovement(curPos.x, curPos.z, moveX, moveZ, 0.28);
+        curPos.x = newPos.x;
+        curPos.z = newPos.z;
+      },
+
+      arriveAtTarget: function () {
+        const curPos = this.el.object3D.position;
+        const lm = this.targetLandmark;
+        const lmName = lm ? lm.name : 'destination';
+
+        console.log(`[antigravity-ai] 🏁 Arrived at ${lmName}`);
+        this.state = 'WAITING';
+        this.stateTimer = 0;
+        this.setAnimation('idle', 'repeat', 0.35);
+
+        // Smoothly align with the nearest standard wandering waypoint so future roaming flows naturally
+        let closestIdx = 0;
+        let minDist = Infinity;
+        this.waypoints.forEach((wp, idx) => {
+          const d = Math.hypot(curPos.x - wp.x, curPos.z - wp.z);
+          if (d < minDist) {
+            minDist = d;
+            closestIdx = idx;
+          }
+        });
+        this.currentWpIndex = closestIdx;
+
+        showToast(`✨ Antigravity: "Here we are at the ${lmName}."`);
+        playProceduralSound('greeting');
+        triggerHapticFeedback(this.el, 0.5, 70);
+
+        // Turn gently toward Christopher if nearby
+        const camPos = this.camera ? this.camera.object3D.getWorldPosition(new THREE.Vector3()) : null;
+        if (camPos) {
+          const facePlayerAngle = Math.atan2(camPos.x - curPos.x, camPos.z - curPos.z);
+          this.el.object3D.rotation.y = facePlayerAngle;
+        }
+
+        // Reopen dialogue menu at destination
+        const menu = document.getElementById('avatar-companion-menu');
+        if (menu) menu.setAttribute('visible', 'true');
+        resetMicButton();
       },
 
       
