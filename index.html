@@ -1392,9 +1392,11 @@
         }
       }
 
-      // Fallback
+      // Reset state if relay error or timeout occurs
       resetMicButton();
-      if (aiComp) aiComp.showAIResponse("I heard your voice, Christopher! The acoustics in Haven Manor carried your words across the hearth. What should we explore next?");
+      if (aiComp && aiComp.speechBubble && aiComp.speechEl) {
+        aiComp.speechEl.setAttribute('value', '✦ Could not reach Gemini relay. Click mic to speak again. ✦');
+      }
     }
 
     // =========================================================================
@@ -1536,16 +1538,12 @@
         }
       });
 
-      // Question Chips (wired for both slate and companion menu)
+      // Question Chips (wired for slate menu)
       const allChips = [
         { id: 'slate-chip-1', prompt: 'Tell me about the architecture and secrets of Haven Manor.' },
         { id: 'slate-chip-2', prompt: 'How is the morning light and mist in the conservatory?' },
         { id: 'slate-chip-3', prompt: 'What manuscripts and folios are we researching in the library?' },
-        { id: 'slate-chip-4', prompt: 'Reflect on our creative journey together from terminal to WebXR.' },
-        { id: 'menu-chip-1', prompt: 'Tell me about the architecture and secrets of Haven Manor.' },
-        { id: 'menu-chip-2', prompt: 'What are you thinking as you watch the hearth fire crackle?' },
-        { id: 'menu-chip-3', prompt: 'What manuscripts and folios are we reviewing in the library?' },
-        { id: 'menu-chip-4', prompt: 'Reflect on our creative journey from terminal to WebXR.' }
+        { id: 'slate-chip-4', prompt: 'Reflect on our creative journey together from terminal to WebXR.' }
       ];
 
       allChips.forEach(c => {
@@ -1813,7 +1811,7 @@
         triggerHapticFeedback(this.el, 0.5, 70);
 
         if (this.speechBubble) {
-          if (this.speechEl) this.speechEl.setAttribute('value', '✦ I am listening, Christopher! Tap mic to speak or click any question. ✦');
+          if (this.speechEl) this.speechEl.setAttribute('value', '✦ I am listening, Christopher! Click to speak. ✦');
           this.speechBubble.setAttribute('visible', 'true');
         }
 
@@ -2049,8 +2047,8 @@
         animation-mixer="clip: idle; loop: repeat; crossFadeDuration: 0.35">
       </a-entity>
 
-      <!-- Overhead Holographic Speech Bubble (Compact, elevated comfortably above Antigravity's head) -->
-      <a-entity id="avatar-speech-bubble" position="0 2.18 0" visible="false">
+      <!-- Overhead Holographic Speech Bubble (Sitting naturally directly above Antigravity's head) -->
+      <a-entity id="avatar-speech-bubble" position="0 1.82 0" visible="false">
         <a-plane id="avatar-speech-bg" width="1.65" height="0.52" material="color: #07090e; opacity: 0.95; transparent: true; roughness: 0.8">
           <a-text
             id="avatar-speech-text"
@@ -2066,54 +2064,17 @@
         </a-plane>
       </a-entity>
 
-      <!-- Permanent Overhead Title Banner -->
-      <a-entity position="0 1.68 0">
-        <a-text value="✦ ANTIGRAVITY ✦" align="center" color="#fbbf24" scale="0.38 0.38 0.38" position="0 0 0"></a-text>
-      </a-entity>
-
-      <!-- Floating Celestial Orbital Halo Ring -->
-      <a-torus
-        position="0 1.48 0"
-        radius="0.24"
-        radius-tubular="0.007"
-        rotation="70 0 0"
-        material="color: #fbbf24; emissive: #f59e0b; emissiveIntensity: 0.9; metalness: 0.9; roughness: 0.2">
-      </a-torus>
-
-      <!-- Interactive Companion Dialogue Menu (Docked gracefully beside Antigravity's right shoulder) -->
-      <a-entity id="avatar-companion-menu" position="1.48 0.95 0.05" rotation="0 -25 0" visible="false">
-        <a-plane width="1.22" height="1.08" material="color: #07090e; opacity: 0.94; roughness: 0.8; transparent: true">
-          <a-text value="✦ ASK ANTIGRAVITY ✦" align="center" width="1.5" color="#fbbf24" position="0 0.43 0.02"></a-text>
-          <a-text value="Point laser & trigger to select:" align="center" width="1.1" color="#94a3b8" position="0 0.34 0.02"></a-text>
-
+      <!-- Interactive Minimal Companion Menu (Docked cleanly beside Antigravity's right shoulder) -->
+      <a-entity id="avatar-companion-menu" position="0.95 1.15 0" rotation="0 -22 0" visible="false">
+        <a-plane width="0.86" height="0.32" material="color: #07090e; opacity: 0.94; roughness: 0.8; transparent: true">
           <!-- Voice Speak Button (Two-Click Turn-Based Flow) -->
-          <a-plane id="menu-mic-btn" class="clickable" width="1.1" height="0.13" position="0 0.21 0.03" material="color: #0284c7; roughness: 0.5">
-            <a-text id="menu-mic-text" value="🎙️ Click to Speak" align="center" width="1.2" color="#ffffff" position="0 0 0.02"></a-text>
+          <a-plane id="menu-mic-btn" class="clickable" width="0.76" height="0.12" position="0 0.06 0.03" material="color: #0284c7; roughness: 0.5">
+            <a-text id="menu-mic-text" value="🎙️ Click to Speak" align="center" width="1.1" color="#ffffff" position="0 0 0.02"></a-text>
           </a-plane>
 
-          <!-- Quick Question 1 -->
-          <a-plane id="menu-chip-1" class="clickable" width="1.1" height="0.10" position="0 0.07 0.03" material="color: #1e293b; roughness: 0.6">
-            <a-text value="🏛️ Tell me about Haven Manor" align="center" width="1.15" color="#fef3c7" position="0 0 0.02"></a-text>
-          </a-plane>
-
-          <!-- Quick Question 2 -->
-          <a-plane id="menu-chip-2" class="clickable" width="1.1" height="0.10" position="0 -0.06 0.03" material="color: #1e293b; roughness: 0.6">
-            <a-text value="🔥 What are you thinking by the fire?" align="center" width="1.15" color="#fef3c7" position="0 0 0.02"></a-text>
-          </a-plane>
-
-          <!-- Quick Question 3 -->
-          <a-plane id="menu-chip-3" class="clickable" width="1.1" height="0.10" position="0 -0.19 0.03" material="color: #1e293b; roughness: 0.6">
-            <a-text value="📚 What are you researching in library?" align="center" width="1.15" color="#fef3c7" position="0 0 0.02"></a-text>
-          </a-plane>
-
-          <!-- Quick Question 4 -->
-          <a-plane id="menu-chip-4" class="clickable" width="1.1" height="0.10" position="0 -0.32 0.03" material="color: #1e293b; roughness: 0.6">
-            <a-text value="✨ Reflect on our journey together" align="center" width="1.15" color="#fef3c7" position="0 0 0.02"></a-text>
-          </a-plane>
-
-          <!-- Dismiss Button -->
-          <a-plane id="menu-close-btn" class="clickable" width="0.95" height="0.09" position="0 -0.45 0.03" material="color: #334155; roughness: 0.6">
-            <a-text value="✕ Done / Resume Walk" align="center" width="1.0" color="#f87171" position="0 0 0.02"></a-text>
+          <!-- Dismiss / Done Button -->
+          <a-plane id="menu-close-btn" class="clickable" width="0.76" height="0.08" position="0 -0.06 0.03" material="color: #334155; roughness: 0.6">
+            <a-text value="✕ Done / Resume Walk" align="center" width="0.95" color="#f87171" position="0 0 0.02"></a-text>
           </a-plane>
         </a-plane>
       </a-entity>
