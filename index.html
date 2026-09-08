@@ -1885,6 +1885,16 @@
         this.speechBg = document.getElementById('avatar-speech-bg');
         this.typewriterTimer = null;
 
+        // Cybernetic Ocular System state
+        this.eyeAssembly = null;
+        this.leftEyePupil = null;
+        this.rightEyePupil = null;
+        this.eyeMat = null;
+        this.headBone = null;
+        this.tempHeadPos = new THREE.Vector3();
+        this.tempHeadQuat = new THREE.Quaternion();
+        this.isThinking = false;
+
         // Safe Navigation Waypoints (Cleanly routing around coffee table and through open archways)
         this.waypoints = [
           { name: 'Hearth', x: 0, z: -2.3, waitTime: 7000 },
@@ -1927,23 +1937,23 @@
             if (!obj) return;
 
             const textureLoader = new THREE.TextureLoader();
-            const coatTexture = textureLoader.load('./textures/avatar_coat.jpg?v=35');
-            coatTexture.wrapS = THREE.RepeatWrapping;
-            coatTexture.wrapT = THREE.RepeatWrapping;
-            coatTexture.flipY = false;
-            if (THREE.SRGBColorSpace) coatTexture.colorSpace = THREE.SRGBColorSpace;
-            coatTexture.anisotropy = 4;
+            const masterTexture = textureLoader.load('./textures/avatar_robot_master.jpg?v=48');
+            masterTexture.wrapS = THREE.RepeatWrapping;
+            masterTexture.wrapT = THREE.RepeatWrapping;
+            masterTexture.flipY = false;
+            if (THREE.SRGBColorSpace) masterTexture.colorSpace = THREE.SRGBColorSpace;
+            masterTexture.anisotropy = 4;
 
-            const celestialBodyMat = new THREE.MeshStandardMaterial({
-              map: coatTexture,
-              metalness: 0.3,
-              roughness: 0.45
+            const robotBodyMat = new THREE.MeshStandardMaterial({
+              map: masterTexture,
+              metalness: 0.45,
+              roughness: 0.35
             });
 
             const antiqueBrassMat = new THREE.MeshStandardMaterial({
               color: new THREE.Color('#d4af37'),
               metalness: 0.9,
-              roughness: 0.2
+              roughness: 0.22
             });
 
             obj.traverse((child) => {
@@ -1951,11 +1961,61 @@
                 if (child.name.includes('Joints') || child.name === 'Beta_Joints') {
                   child.material = antiqueBrassMat;
                 } else {
-                  child.material = celestialBodyMat;
+                  child.material = robotBodyMat;
                 }
                 child.material.needsUpdate = true;
               }
             });
+
+            // Locate Head Bone & Assemble Living Cybernetic Ocular System
+            const head = obj.getObjectByName('mixamorigHead');
+            if (head) {
+              this.headBone = head;
+              const sceneEl = document.querySelector('a-scene');
+              this.eyeAssembly = new THREE.Group();
+              if (sceneEl && sceneEl.object3D) {
+                sceneEl.object3D.add(this.eyeAssembly);
+              } else {
+                this.el.object3D.add(this.eyeAssembly);
+              }
+
+              this.eyeMat = new THREE.MeshBasicMaterial({
+                color: 0x38bdf8,
+                transparent: true,
+                opacity: 0.92
+              });
+              const pupilMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+              const bezelMat = new THREE.MeshBasicMaterial({ color: 0xd4af37 });
+
+              const irisGeom = new THREE.RingGeometry(0.0045, 0.0145, 32);
+              const pupilGeom = new THREE.CircleGeometry(0.0048, 32);
+              const bezelGeom = new THREE.RingGeometry(0.0145, 0.0185, 32);
+
+              const makeOcular = (x, rotY) => {
+                const group = new THREE.Group();
+                group.position.set(x, 0.062, 0.100);
+                group.rotation.y = rotY;
+                group.rotation.x = -0.04;
+
+                const iris = new THREE.Mesh(irisGeom, this.eyeMat);
+                const pupil = new THREE.Mesh(pupilGeom, pupilMat);
+                pupil.position.z = 0.001;
+                const bezel = new THREE.Mesh(bezelGeom, bezelMat);
+                bezel.position.z = 0.0005;
+
+                group.add(bezel);
+                group.add(iris);
+                group.add(pupil);
+                return { group, iris, pupil };
+              };
+
+              const leftEye = makeOcular(0.020, -0.12);
+              const rightEye = makeOcular(-0.020, 0.12);
+              this.eyeAssembly.add(leftEye.group);
+              this.eyeAssembly.add(rightEye.group);
+              this.leftEyePupil = leftEye.pupil;
+              this.rightEyePupil = rightEye.pupil;
+            }
           });
         }
 
@@ -1985,6 +2045,61 @@
         this.animTime += deltaSec;
         const curPos = this.el.object3D.position;
         const camPos = this.camera ? this.camera.object3D.getWorldPosition(new THREE.Vector3()) : new THREE.Vector3(0, 1.6, 0);
+
+        // Update Cybernetic Eyes: Active Gaze Tracking & Dynamic Expressive Light Pulsing
+        if (this.eyeAssembly && this.headBone) {
+          this.headBone.getWorldPosition(this.tempHeadPos);
+          this.headBone.getWorldQuaternion(this.tempHeadQuat);
+          this.eyeAssembly.position.copy(this.tempHeadPos);
+          this.eyeAssembly.quaternion.copy(this.tempHeadQuat);
+
+          // 1. Simulated Eye Contact: Project vector to Christopher into head local frame
+          const gazeVec = new THREE.Vector3().subVectors(camPos, this.tempHeadPos);
+          const invQuat = this.tempHeadQuat.clone().invert();
+          gazeVec.applyQuaternion(invQuat);
+
+          const gazeDist = Math.max(0.4, gazeVec.length());
+          const targetPupilX = THREE.MathUtils.clamp((gazeVec.x / gazeDist) * 0.0035, -0.0022, 0.0022);
+          const targetPupilY = THREE.MathUtils.clamp((gazeVec.y / gazeDist) * 0.0035, -0.0020, 0.0020);
+
+          if (this.leftEyePupil && this.rightEyePupil) {
+            this.leftEyePupil.position.x = THREE.MathUtils.lerp(this.leftEyePupil.position.x, targetPupilX, deltaSec * 8);
+            this.leftEyePupil.position.y = THREE.MathUtils.lerp(this.leftEyePupil.position.y, targetPupilY, deltaSec * 8);
+            this.rightEyePupil.position.x = THREE.MathUtils.lerp(this.rightEyePupil.position.x, targetPupilX, deltaSec * 8);
+            this.rightEyePupil.position.y = THREE.MathUtils.lerp(this.rightEyePupil.position.y, targetPupilY, deltaSec * 8);
+          }
+
+          // 2. Dynamic State-Driven Light Pulsing
+          if (this.eyeMat) {
+            let baseOpacity = 0.82;
+            let pulseAmp = 0.14;
+            let pulseSpeed = 0.003;
+
+            if (typeof isSpeechActive !== 'undefined' && isSpeechActive || typeof isRecordingAudio !== 'undefined' && isRecordingAudio) {
+              // Listening mode: bright, receptive, rhythmic breathing pulse
+              baseOpacity = 0.92;
+              pulseAmp = 0.22;
+              pulseSpeed = 0.009;
+            } else if (this.isThinking) {
+              // Cognitive shimmer
+              baseOpacity = 0.88;
+              pulseAmp = 0.20;
+              pulseSpeed = 0.022;
+            } else if (this.state === 'CONVERSING') {
+              // Attentive presence / direct eye contact
+              baseOpacity = 0.90;
+              pulseAmp = 0.10;
+              pulseSpeed = 0.005;
+            } else {
+              // Ambient relaxed breathing
+              baseOpacity = 0.65;
+              pulseAmp = 0.15;
+              pulseSpeed = 0.003;
+            }
+
+            this.eyeMat.opacity = baseOpacity + pulseAmp * Math.sin(t * pulseSpeed);
+          }
+        }
 
         const distToPlayer = Math.hypot(curPos.x - camPos.x, curPos.z - camPos.z);
 
@@ -2237,7 +2352,7 @@
         const estimatedLineHeight = 0.088;
         const height = Math.max(0.36, 0.16 + (lineCount * estimatedLineHeight));
 
-        const centerY = 1.58 + (height / 2);
+        const centerY = 1.38 + (height / 2);
 
         this.speechBubble.setAttribute('position', `0 ${centerY.toFixed(3)} 0`);
         this.speechBg.setAttribute('width', width.toFixed(2));
@@ -2251,6 +2366,7 @@
         this.state = 'CONVERSING';
         this.stateTimer = 0;
         this.lastGreetingTime = Date.now();
+        this.isThinking = false;
 
         const curPos = this.el.object3D.position;
         const targetAngle = Math.atan2(camPos.x - curPos.x, camPos.z - curPos.z);
@@ -2291,6 +2407,7 @@
       showListeningState: function () {
         this.state = 'CONVERSING';
         this.stateTimer = 0;
+        this.isThinking = false;
         if (this.typewriterTimer) {
           clearTimeout(this.typewriterTimer);
           this.typewriterTimer = null;
@@ -2304,6 +2421,7 @@
       showSynthesizingState: function (prompt) {
         this.state = 'CONVERSING';
         this.stateTimer = 0;
+        this.isThinking = true;
         this.setAnimation('idle', 'repeat', 0.35);
         if (this.typewriterTimer) {
           clearTimeout(this.typewriterTimer);
@@ -2318,6 +2436,7 @@
       showAIResponse: function (response) {
         this.state = 'CONVERSING';
         this.stateTimer = 0;
+        this.isThinking = false;
         this.setAnimation('agree', 'once', 0.35);
         setTimeout(() => {
           if (this.state === 'CONVERSING') {
@@ -2570,7 +2689,7 @@
       </a-entity>
 
       <!-- Overhead Holographic Speech Bubble (Sitting naturally directly above Antigravity's head) -->
-      <a-entity id="avatar-speech-bubble" position="0 1.82 0" visible="false">
+      <a-entity id="avatar-speech-bubble" position="0 1.54 0" visible="false">
         <a-plane id="avatar-speech-bg" width="1.65" height="0.52" material="color: #07090e; opacity: 0.95; transparent: true; roughness: 0.8">
           <a-text
             id="avatar-speech-text"
