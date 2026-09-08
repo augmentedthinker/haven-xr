@@ -1235,10 +1235,27 @@
       }
 
       try {
-        micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        // Optimized audio constraints: single channel, 16kHz sample rate with echo/noise processing
+        micStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            channelCount: 1,
+            sampleRate: 16000,
+            echoCancellation: true,
+            noiseSuppression: true
+          }
+        });
         audioChunks = [];
-        const mime = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
-        mediaRecorder = new MediaRecorder(micStream, { mimeType: mime });
+        const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+          ? 'audio/webm;codecs=opus'
+          : (MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4');
+
+        let recOptions = { mimeType: mime };
+        try {
+          recOptions.audioBitsPerSecond = 16000;
+          mediaRecorder = new MediaRecorder(micStream, recOptions);
+        } catch (e) {
+          mediaRecorder = new MediaRecorder(micStream, { mimeType: mime });
+        }
 
         mediaRecorder.ondataavailable = (e) => {
           if (e.data && e.data.size > 0) audioChunks.push(e.data);
@@ -1269,11 +1286,11 @@
         const bubble = document.getElementById('avatar-speech-text');
         if (bubble) bubble.setAttribute('value', '🎙️ Listening to you, Christopher... Speak aloud, then click to send!');
 
-        // Safety fallback: auto-stop after 60 seconds of speaking to avoid runaway background recording
+        // Safety fallback: auto-stop after 75 seconds of speaking to avoid runaway background recording
         if (recordingSafetyTimer) clearTimeout(recordingSafetyTimer);
         recordingSafetyTimer = setTimeout(() => {
           if (isRecordingAudio) stopAudioRecording();
-        }, 60000);
+        }, 75000);
 
       } catch (err) {
         console.warn('Microphone permission error:', err);
@@ -1309,7 +1326,7 @@
     async function executeAudioTurn(base64Data, mimeType) {
       const room = getCurrentManorRoomName();
       const queryId = 'q_audio_' + Date.now();
-      console.log('⚡ Sending recorded audio to Supabase Realtime AI Relay...');
+      console.log('⚡ Sending recorded audio to Supabase Realtime AI Relay (' + base64Data.length + ' chars)...');
 
       const avatar = document.getElementById('antigravity-avatar');
       const aiComp = avatar ? avatar.components['antigravity-ai'] : null;
@@ -1322,22 +1339,49 @@
             setTimeout(() => {
               if (pendingQueries[queryId]) {
                 delete pendingQueries[queryId];
-                reject(new Error('Audio relay timeout'));
+                reject(new Error('Audio relay timeout (25s)'));
               }
-            }, 10000);
+            }, 25000);
           });
 
-          await HAVEN_CLOUD.channel.send({
-            type: 'broadcast',
-            event: 'avatar_query',
-            payload: {
-              queryId: queryId,
-              audioBase64: base64Data,
-              mimeType: mimeType,
-              room: room,
-              timestamp: Date.now()
+          // Supabase Realtime hard limit is 256 KB.
+          // Chunk at 100,000 characters to ensure 100% reliable transmission regardless of speech duration.
+          const CHUNK_SIZE = 100000;
+          if (base64Data.length <= CHUNK_SIZE) {
+            await HAVEN_CLOUD.channel.send({
+              type: 'broadcast',
+              event: 'avatar_query',
+              payload: {
+                queryId: queryId,
+                audioBase64: base64Data,
+                mimeType: mimeType,
+                room: room,
+                timestamp: Date.now()
+              }
+            });
+          } else {
+            const totalChunks = Math.ceil(base64Data.length / CHUNK_SIZE);
+            console.log(`⚡ Large audio (${base64Data.length} chars): transmitting ${totalChunks} chunks to Supabase...`);
+            for (let i = 0; i < totalChunks; i++) {
+              const slice = base64Data.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+              await HAVEN_CLOUD.channel.send({
+                type: 'broadcast',
+                event: 'avatar_query_chunk',
+                payload: {
+                  queryId: queryId,
+                  chunkIndex: i,
+                  totalChunks: totalChunks,
+                  chunkData: slice,
+                  mimeType: mimeType,
+                  room: room,
+                  timestamp: Date.now()
+                }
+              });
+              if (i < totalChunks - 1) {
+                await new Promise(r => setTimeout(r, 30));
+              }
             }
-          });
+          }
 
           const replyText = await relayPromise;
           resetMicButton();
