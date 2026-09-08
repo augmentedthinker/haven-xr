@@ -1125,6 +1125,7 @@
     let audioChunks = [];
     let isRecordingAudio = false;
     let micStream = null;
+    let recordingSafetyTimer = null;
 
     function initSpeechSystem() {
       const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -1183,8 +1184,17 @@
       const menuMic = document.getElementById('menu-mic-btn');
       const menuText = document.getElementById('menu-mic-text');
       if (menuMic && menuText) {
-        menuMic.setAttribute('material', 'color', listening ? '#dc2626' : '#0284c7');
-        menuText.setAttribute('value', listening ? '🔴 Listening... Speak now!' : '🎙️ Speak Aloud (Trigger to Talk)');
+        menuMic.setAttribute('material', 'color', listening ? '#059669' : '#0284c7');
+        menuText.setAttribute('value', listening ? '🟢 Click to Send Voice' : '🎙️ Click to Speak');
+      }
+    }
+
+    function resetMicButton() {
+      const menuMic = document.getElementById('menu-mic-btn');
+      const menuText = document.getElementById('menu-mic-text');
+      if (menuMic && menuText) {
+        menuMic.setAttribute('material', 'color', '#0284c7');
+        menuText.setAttribute('value', '🎙️ Click to Speak');
       }
     }
 
@@ -1208,7 +1218,7 @@
         }
       }
 
-      // 2. Direct MediaRecorder audio streaming (Engineered for Meta Quest Browser)
+      // 2. Direct MediaRecorder audio streaming (Turn-based: Click 1 = Record, Click 2 = Send)
       if (isRecordingAudio) {
         stopAudioRecording();
       } else {
@@ -1257,12 +1267,13 @@
         triggerHapticFeedback(document.getElementById('right-hand'), 0.5, 60);
 
         const bubble = document.getElementById('avatar-speech-text');
-        if (bubble) bubble.setAttribute('value', '🎙️ Listening to you, Christopher... Speak aloud now!');
+        if (bubble) bubble.setAttribute('value', '🎙️ Listening to you, Christopher... Speak aloud, then click to send!');
 
-        // Auto-stop after 4.5 seconds of speaking
-        setTimeout(() => {
+        // Safety fallback: auto-stop after 60 seconds of speaking to avoid runaway background recording
+        if (recordingSafetyTimer) clearTimeout(recordingSafetyTimer);
+        recordingSafetyTimer = setTimeout(() => {
           if (isRecordingAudio) stopAudioRecording();
-        }, 4500);
+        }, 60000);
 
       } catch (err) {
         console.warn('Microphone permission error:', err);
@@ -1275,10 +1286,19 @@
     }
 
     function stopAudioRecording() {
+      if (recordingSafetyTimer) {
+        clearTimeout(recordingSafetyTimer);
+        recordingSafetyTimer = null;
+      }
       if (mediaRecorder && isRecordingAudio) {
         isRecordingAudio = false;
-        setMicUIState(false);
         mediaRecorder.stop();
+        const menuMic = document.getElementById('menu-mic-btn');
+        const menuText = document.getElementById('menu-mic-text');
+        if (menuMic && menuText) {
+          menuMic.setAttribute('material', 'color', '#d97706');
+          menuText.setAttribute('value', '⏱️ Thinking...');
+        }
         const avatar = document.getElementById('antigravity-avatar');
         if (avatar && avatar.components['antigravity-ai']) {
           avatar.components['antigravity-ai'].showSynthesizingState('[Spoken Voice]');
@@ -1304,7 +1324,7 @@
                 delete pendingQueries[queryId];
                 reject(new Error('Audio relay timeout'));
               }
-            }, 8500);
+            }, 10000);
           });
 
           await HAVEN_CLOUD.channel.send({
@@ -1320,6 +1340,7 @@
           });
 
           const replyText = await relayPromise;
+          resetMicButton();
           if (aiComp) aiComp.showAIResponse(replyText);
           return;
         } catch (err) {
@@ -1328,6 +1349,7 @@
       }
 
       // Fallback
+      resetMicButton();
       if (aiComp) aiComp.showAIResponse("I heard your voice, Christopher! The acoustics in Haven Manor carried your words across the hearth. What should we explore next?");
     }
 
@@ -1613,6 +1635,11 @@
         if (this.state === 'CONVERSING') {
           const targetAngle = Math.atan2(camPos.x - curPos.x, camPos.z - curPos.z);
           this.el.object3D.rotation.y = THREE.MathUtils.lerp(this.el.object3D.rotation.y, targetAngle, deltaSec * 4);
+
+          // Safety fallback: if Christopher walks to another room (> 5.5m away), gently resume walking
+          if (distToPlayer > 5.5) {
+            this.resumeRoaming();
+          }
         } else if (this.state === 'GREETING') {
           this.updateGreeting(deltaSec, camPos);
         } else if (this.state === 'WALKING') {
@@ -1731,24 +1758,29 @@
         const targetAngle = Math.atan2(camPos.x - curPos.x, camPos.z - curPos.z);
         this.el.object3D.rotation.y = targetAngle;
 
-        this.setAnimation('agree', 'repeat', 0.25);
+        this.setAnimation('agree', 'once', 0.25);
+        setTimeout(() => {
+          if (this.state === 'CONVERSING') {
+            this.setAnimation('idle', 'repeat', 0.35);
+          }
+        }, 2000);
+
         playProceduralSound('chime');
         triggerHapticFeedback(this.el, 0.5, 70);
 
         if (this.speechBubble) {
-          if (this.speechEl) this.speechEl.setAttribute('value', '✦ I am listening, Christopher! Point laser & trigger a question, or tap mic to speak. ✦');
+          if (this.speechEl) this.speechEl.setAttribute('value', '✦ I am listening, Christopher! Tap mic to speak or click any question. ✦');
           this.speechBubble.setAttribute('visible', 'true');
         }
 
         // Show companion dialogue menu right beside Antigravity
         const menu = document.getElementById('avatar-companion-menu');
         if (menu) menu.setAttribute('visible', 'true');
+        resetMicButton();
 
         const scene = document.querySelector('a-scene');
         const isVR = scene && scene.is && scene.is('vr-mode');
-        if (isVR) {
-          toggleSpatialDialogueSlate(true);
-        } else {
+        if (!isVR) {
           toggleDesktopDialogue(true);
         }
       },
@@ -1756,7 +1788,7 @@
       showSynthesizingState: function (prompt) {
         this.state = 'CONVERSING';
         this.stateTimer = 0;
-        this.setAnimation('agree', 'repeat', 0.25);
+        this.setAnimation('idle', 'repeat', 0.35);
         if (this.haloRing) {
           this.haloRing.setAttribute('material', 'color: #fbbf24; emissive: #f59e0b; emissiveIntensity: 1.5');
         }
@@ -1770,6 +1802,12 @@
         this.state = 'CONVERSING';
         this.stateTimer = 0;
         this.setAnimation('agree', 'once', 0.35);
+        setTimeout(() => {
+          if (this.state === 'CONVERSING') {
+            this.setAnimation('idle', 'repeat', 0.35);
+          }
+        }, 2200);
+
         playProceduralSound('chime');
         triggerHapticFeedback(document.getElementById('right-hand'), 0.6, 80);
 
@@ -1782,12 +1820,10 @@
           this.speechBubble.setAttribute('visible', 'true');
         }
         showToast('✨ Antigravity: "' + response + '"');
+        resetMicButton();
 
-        setTimeout(() => {
-          if (this.state === 'CONVERSING') {
-            this.resumeRoaming();
-          }
-        }, 12000);
+        // Dialogue response remains STATIC on screen until Christopher explicitly
+        // clicks [ ✕ Done / Resume Walk ] or chooses another question/speaks again.
       },
 
       resumeRoaming: function () {
@@ -1796,7 +1832,7 @@
         if (this.speechBubble) this.speechBubble.setAttribute('visible', 'false');
         const menu = document.getElementById('avatar-companion-menu');
         if (menu) menu.setAttribute('visible', 'false');
-        toggleSpatialDialogueSlate(false);
+        resetMicButton();
         if (this.haloRing) {
           this.haloRing.setAttribute('material', 'color: #fbbf24; emissive: #f59e0b; emissiveIntensity: 0.9');
         }
@@ -1969,71 +2005,71 @@
         animation-mixer="clip: idle; loop: repeat; crossFadeDuration: 0.35">
       </a-entity>
 
-      <!-- Overhead Holographic Speech Bubble (Floats high above Antigravity's head) -->
-      <a-entity id="avatar-speech-bubble" position="0 2.48 0" visible="false">
-        <a-plane id="avatar-speech-bg" width="3.0" height="0.84" material="color: #07090e; opacity: 0.95; transparent: true; roughness: 0.8">
+      <!-- Overhead Holographic Speech Bubble (Compact, elevated comfortably above Antigravity's head) -->
+      <a-entity id="avatar-speech-bubble" position="0 2.18 0" visible="false">
+        <a-plane id="avatar-speech-bg" width="1.65" height="0.52" material="color: #07090e; opacity: 0.95; transparent: true; roughness: 0.8">
           <a-text
             id="avatar-speech-text"
             value="Hello Christopher!"
             align="center"
             baseline="center"
             side="front"
-            width="2.8"
+            width="1.52"
             color="#fef08a"
-            wrap-count="36"
-            position="0 0 0.03">
+            wrap-count="28"
+            position="0 0 0.02">
           </a-text>
         </a-plane>
       </a-entity>
 
       <!-- Permanent Overhead Title Banner -->
-      <a-entity position="0 1.72 0">
-        <a-text value="✦ ANTIGRAVITY ✦" align="center" color="#fbbf24" scale="0.42 0.42 0.42" position="0 0 0"></a-text>
+      <a-entity position="0 1.68 0">
+        <a-text value="✦ ANTIGRAVITY ✦" align="center" color="#fbbf24" scale="0.38 0.38 0.38" position="0 0 0"></a-text>
       </a-entity>
 
       <!-- Floating Celestial Orbital Halo Ring -->
       <a-torus
-        position="0 1.5 0"
-        radius="0.25"
-        radius-tubular="0.008"
+        position="0 1.48 0"
+        radius="0.24"
+        radius-tubular="0.007"
         rotation="70 0 0"
         material="color: #fbbf24; emissive: #f59e0b; emissiveIntensity: 0.9; metalness: 0.9; roughness: 0.2">
       </a-torus>
 
       <!-- Interactive Companion Dialogue Menu (Docked gracefully beside Antigravity's right shoulder) -->
-      <a-entity id="avatar-companion-menu" position="1.42 1.15 0" rotation="0 -24 0" visible="false">
-        <a-plane width="1.9" height="1.45" material="color: #07090e; opacity: 0.94; roughness: 0.8; transparent: true">
-          <a-text value="✦ ASK ANTIGRAVITY ✦" align="center" width="2.1" color="#fbbf24" position="0 0.6 0.02"></a-text>
-          <a-text value="Point laser & click trigger:" align="center" width="1.6" color="#94a3b8" position="0 0.48 0.02"></a-text>
+      <a-entity id="avatar-companion-menu" position="1.48 0.95 0.05" rotation="0 -25 0" visible="false">
+        <a-plane width="1.22" height="1.08" material="color: #07090e; opacity: 0.94; roughness: 0.8; transparent: true">
+          <a-text value="✦ ASK ANTIGRAVITY ✦" align="center" width="1.5" color="#fbbf24" position="0 0.43 0.02"></a-text>
+          <a-text value="Point laser & trigger to select:" align="center" width="1.1" color="#94a3b8" position="0 0.34 0.02"></a-text>
 
-          <!-- Voice Speak Button -->
-          <a-plane id="menu-mic-btn" class="clickable" width="1.7" height="0.18" position="0 0.32 0.03" material="color: #0284c7; roughness: 0.5">
-            <a-text id="menu-mic-text" value="🎙️ Speak Aloud (Trigger to Talk)" align="center" width="1.8" color="#ffffff" position="0 0 0.02"></a-text>
+          <!-- Voice Speak Button (Two-Click Turn-Based Flow) -->
+          <a-plane id="menu-mic-btn" class="clickable" width="1.1" height="0.13" position="0 0.21 0.03" material="color: #0284c7; roughness: 0.5">
+            <a-text id="menu-mic-text" value="🎙️ Click to Speak" align="center" width="1.2" color="#ffffff" position="0 0 0.02"></a-text>
           </a-plane>
 
           <!-- Quick Question 1 -->
-          <a-plane id="menu-chip-1" class="clickable" width="1.7" height="0.16" position="0 0.11 0.03" material="color: #1e293b; roughness: 0.6">
-            <a-text value="🏛️ Tell me about Haven Manor" align="center" width="1.7" color="#fef3c7" position="0 0 0.02"></a-text>
+          <a-plane id="menu-chip-1" class="clickable" width="1.1" height="0.10" position="0 0.07 0.03" material="color: #1e293b; roughness: 0.6">
+            <a-text value="🏛️ Tell me about Haven Manor" align="center" width="1.15" color="#fef3c7" position="0 0 0.02"></a-text>
           </a-plane>
 
           <!-- Quick Question 2 -->
-          <a-plane id="menu-chip-2" class="clickable" width="1.7" height="0.16" position="0 -0.08 0.03" material="color: #1e293b; roughness: 0.6">
-            <a-text value="🔥 What are you thinking by the fire?" align="center" width="1.7" color="#fef3c7" position="0 0 0.02"></a-text>
+          <a-plane id="menu-chip-2" class="clickable" width="1.1" height="0.10" position="0 -0.06 0.03" material="color: #1e293b; roughness: 0.6">
+            <a-text value="🔥 What are you thinking by the fire?" align="center" width="1.15" color="#fef3c7" position="0 0 0.02"></a-text>
           </a-plane>
 
           <!-- Quick Question 3 -->
-          <a-plane id="menu-chip-3" class="clickable" width="1.7" height="0.16" position="0 -0.27 0.03" material="color: #1e293b; roughness: 0.6">
-            <a-text value="📚 What are you researching in the library?" align="center" width="1.7" color="#fef3c7" position="0 0 0.02"></a-text>
+          <a-plane id="menu-chip-3" class="clickable" width="1.1" height="0.10" position="0 -0.19 0.03" material="color: #1e293b; roughness: 0.6">
+            <a-text value="📚 What are you researching in library?" align="center" width="1.15" color="#fef3c7" position="0 0 0.02"></a-text>
           </a-plane>
 
           <!-- Quick Question 4 -->
-          <a-plane id="menu-chip-4" class="clickable" width="1.7" height="0.16" position="0 -0.46 0.03" material="color: #1e293b; roughness: 0.6">
-            <a-text value="✨ Reflect on our journey together" align="center" width="1.7" color="#fef3c7" position="0 0 0.02"></a-text>
+          <a-plane id="menu-chip-4" class="clickable" width="1.1" height="0.10" position="0 -0.32 0.03" material="color: #1e293b; roughness: 0.6">
+            <a-text value="✨ Reflect on our journey together" align="center" width="1.15" color="#fef3c7" position="0 0 0.02"></a-text>
           </a-plane>
 
           <!-- Dismiss Button -->
-          <a-plane id="menu-close-btn" class="clickable" width="0.75" height="0.11" position="0 -0.61 0.03" material="color: #334155; roughness: 0.6">
-            <a-text value="✕ Walk On" align="center" width="1.3" color="#f87171" position="0 0 0.02"></a-text>
+          <a-plane id="menu-close-btn" class="clickable" width="0.95" height="0.09" position="0 -0.45 0.03" material="color: #334155; roughness: 0.6">
+            <a-text value="✕ Done / Resume Walk" align="center" width="1.0" color="#f87171" position="0 0 0.02"></a-text>
           </a-plane>
         </a-plane>
       </a-entity>
