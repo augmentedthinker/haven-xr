@@ -1,0 +1,1395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Haven XR: The Living Manor | Artifact 09</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌅</text></svg>">
+  <meta name="description" content="Spatial WebXR Manor exploration engineered for Oculus Quest 2 and desktop browsers in Horizon.">
+  
+  <!-- Local A-Frame Core with CDN Fallback -->
+  <script src="./vendor/aframe.min.js"></script>
+  <script src="./vendor/aframe-extras.min.js"></script>
+  <script>
+    if (typeof AFRAME === 'undefined') {
+      document.write('<script src="https://aframe.io/releases/1.6.0/aframe.min.js"><\/script>');
+    }
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg-dark: #07090e;
+      --gold: #f59e0b;
+      --gold-light: #fbbf24;
+      --amber: #d97706;
+      --panel-bg: rgba(11, 15, 25, 0.85);
+      --border-gold: rgba(245, 158, 11, 0.35);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background: var(--bg-dark);
+      color: #f1f5f9;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    /* Top Navigation Header */
+    .top-header {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 52px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 24px;
+      background: linear-gradient(180deg, rgba(7, 9, 14, 0.95) 0%, rgba(7, 9, 14, 0.6) 80%, transparent 100%);
+      border-bottom: 1px solid rgba(245, 158, 11, 0.2);
+      z-index: 999;
+      pointer-events: auto;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .btn-back {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--gold-light);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 6px 14px;
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid var(--border-gold);
+      border-radius: 20px;
+      transition: all 0.2s ease;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .btn-back:hover {
+      background: rgba(245, 158, 11, 0.25);
+      color: #fff;
+      transform: translateY(-1px);
+    }
+
+    .header-title {
+      font-family: 'Cinzel', serif;
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      color: #fef3c7;
+      text-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+    }
+
+    .header-badge {
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+      padding: 3px 10px;
+      background: rgba(245, 158, 11, 0.15);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      color: var(--gold-light);
+      border-radius: 12px;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .hud-btn {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #cbd5e1;
+      padding: 6px 14px;
+      font-size: 12px;
+      font-family: 'Inter', sans-serif;
+      font-weight: 500;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .hud-btn:hover {
+      background: rgba(30, 41, 59, 0.9);
+      border-color: var(--gold);
+      color: #fff;
+    }
+
+    .hud-btn.active {
+      background: rgba(245, 158, 11, 0.2);
+      border-color: var(--gold);
+      color: var(--gold-light);
+    }
+
+    /* Atmospheric HUD Instructions Overlay */
+    .controls-panel {
+      position: absolute;
+      bottom: 24px;
+      left: 24px;
+      background: var(--panel-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-gold);
+      border-radius: 12px;
+      padding: 16px 20px;
+      max-width: 380px;
+      z-index: 999;
+      pointer-events: auto;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+
+    .controls-panel.hidden {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(10px);
+    }
+
+    .panel-title {
+      font-family: 'Cinzel', serif;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--gold-light);
+      margin-bottom: 8px;
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .panel-row {
+      font-size: 12px;
+      color: #cbd5e1;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .key-tag {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: #fef3c7;
+    }
+
+    /* Dynamic In-World Inspection Toast */
+    #manor-toast {
+      position: absolute;
+      top: 72px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(11, 15, 25, 0.92);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--gold);
+      color: #fef3c7;
+      padding: 10px 24px;
+      border-radius: 30px;
+      font-size: 14px;
+      font-family: 'Cinzel', serif;
+      letter-spacing: 1px;
+      display: none;
+      z-index: 999;
+      box-shadow: 0 8px 24px rgba(245, 158, 11, 0.3);
+      pointer-events: none;
+      animation: toastFade 0.3s ease-out;
+    }
+
+    @keyframes toastFade {
+      from { opacity: 0; transform: translate(-50%, -10px); }
+      to { opacity: 1; transform: translate(-50%, 0); }
+    }
+
+    /* VR Mode UI button styling override */
+    .a-enter-vr {
+      bottom: 24px !important;
+      right: 24px !important;
+      z-index: 9999 !important;
+    }
+
+    .a-enter-vr-button {
+      background: rgba(245, 158, 11, 0.9) !important;
+      border: 1px solid #fbbf24 !important;
+      border-radius: 12px !important;
+      box-shadow: 0 4px 20px rgba(245, 158, 11, 0.4) !important;
+    }
+  </style>
+
+  <script>
+    // =========================================================================
+    // A-FRAME EXTENDED LOGIC: FLICKER, SPATIAL AUDIO, INTERACTION & XR CONTROLS
+    // =========================================================================
+
+    // 1. Fireplace Procedural Flame Flicker Component
+    AFRAME.registerComponent('fire-flicker', {
+      schema: {
+        baseIntensity: { type: 'number', default: 2.2 },
+        variance: { type: 'number', default: 0.5 },
+        speed: { type: 'number', default: 12 }
+      },
+      init: function () {
+        this.light = this.el.getObject3D('light');
+        this.time = Math.random() * 100;
+      },
+      tick: function (t, dt) {
+        if (!this.light) {
+          this.light = this.el.getObject3D('light');
+          return;
+        }
+        this.time += (dt / 1000) * this.data.speed;
+        const noise = Math.sin(this.time) * 0.5 + Math.sin(this.time * 2.3) * 0.3 + Math.cos(this.time * 4.7) * 0.2;
+        this.light.intensity = Math.max(0.8, this.data.baseIntensity + (noise * this.data.variance));
+        
+        // Subtle positional jitter
+        const px = Math.sin(this.time * 3.1) * 0.04;
+        const py = Math.cos(this.time * 2.7) * 0.03;
+        this.el.object3D.position.x = px;
+        this.el.object3D.position.y = 1.2 + py;
+      }
+    });
+
+    // 2. Interactive Object Component with Quest Haptics & Toast
+    AFRAME.registerComponent('interactive-prop', {
+      schema: {
+        title: { type: 'string', default: 'Ancient Feature' },
+        hint: { type: 'string', default: 'Warm to the touch.' },
+        sound: { type: 'string', default: 'wood' }
+      },
+      init: function () {
+        const el = this.el;
+        const data = this.data;
+
+        el.addEventListener('click', function () {
+          triggerHapticFeedback(el);
+          playProceduralSound(data.sound);
+          showToast(`${data.title}: ${data.hint}`);
+        });
+
+        el.addEventListener('mouseenter', function () {
+          el.setAttribute('animation__hover', 'property: scale; to: 1.02 1.02 1.02; dur: 150; easing: easeOutQuad');
+        });
+
+        el.addEventListener('mouseleave', function () {
+          el.setAttribute('animation__hover', 'property: scale; to: 1 1 1; dur: 150; easing: easeOutQuad');
+        });
+      }
+    });
+
+    
+    // =========================================================================
+    // SPATIAL AABB COLLISION ENGINE & TWO-AXIS SLIDING RESOLVER
+    // =========================================================================
+    const MANOR_OBSTACLES = [
+      // Archway Partitions between Foyer and Library (X = -4)
+      { minX: -4.35, maxX: -3.65, minZ: -4.0, maxZ: -1.75 }, // North partition
+      { minX: -4.35, maxX: -3.65, minZ: 1.75, maxZ: 4.0 },   // South partition
+
+      // Archway Partitions between Foyer and Sunroom (X = +4)
+      { minX: 3.65, maxX: 4.35, minZ: -4.0, maxZ: -1.75 },   // North partition
+      { minX: 3.65, maxX: 4.35, minZ: 1.75, maxZ: 4.0 },     // South partition
+
+      // Fieldstone Fireplace & Hearth Breast (North Foyer wall)
+      { minX: -2.0, maxX: 2.0, minZ: -4.0, maxZ: -3.6 },
+
+      // Central Reclaimed Wood Coffee Table (Foyer)
+      { minX: -1.0, maxX: 1.0, minZ: -1.7, maxZ: -0.7 },
+
+      // Scholar's Desk (Library)
+      { minX: -9.3, maxX: -6.7, minZ: -0.7, maxZ: 0.7 },
+
+      // Indoor Terracotta Planters (Sunroom)
+      { minX: 5.6, maxX: 6.8, minZ: -3.4, maxZ: -2.2 },
+      { minX: 9.2, maxX: 10.4, minZ: -3.4, maxZ: -2.2 },
+
+      // Closed Exterior Manor Door (South Foyer wall)
+      { minX: -1.8, maxX: 1.8, minZ: 3.65, maxZ: 4.0 }
+    ];
+
+    function checkCollision(x, z, radius = 0.35) {
+      // Outer Manor Perimeter walls
+      if (x - radius < -11.6 || x + radius > 11.6) return true;
+      if (z - radius < -3.65 || z + radius > 3.65) return true;
+
+      // Obstacles
+      for (let i = 0; i < MANOR_OBSTACLES.length; i++) {
+        const b = MANOR_OBSTACLES[i];
+        if (x + radius > b.minX && x - radius < b.maxX &&
+            z + radius > b.minZ && z - radius < b.maxZ) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function resolveMovement(currentX, currentZ, deltaX, deltaZ, radius = 0.35) {
+      const targetX = currentX + deltaX;
+      const targetZ = currentZ + deltaZ;
+
+      // 1. If full direct movement is unblocked, proceed
+      if (!checkCollision(targetX, targetZ, radius)) {
+        return { x: targetX, z: targetZ };
+      }
+
+      // 2. Otherwise try sliding along X axis only
+      if (!checkCollision(targetX, currentZ, radius)) {
+        return { x: targetX, z: currentZ };
+      }
+
+      // 3. Otherwise try sliding along Z axis only
+      if (!checkCollision(currentX, targetZ, radius)) {
+        return { x: currentX, z: targetZ };
+      }
+
+      // 4. Firm obstacle barrier: halt
+      return { x: currentX, z: currentZ };
+    }
+
+    // Helper: Generate Triplanar UV coordinates for buffer geometry
+    function applyTriplanarUVs(geometry) {
+      if (!geometry || !geometry.attributes || !geometry.attributes.position) return;
+      const pos = geometry.attributes.position;
+      const norm = geometry.attributes.normal;
+      const count = pos.count;
+      const uvs = new Float32Array(count * 2);
+
+      for (let i = 0; i < count; i++) {
+        const x = pos.getX(i);
+        const y = pos.getY(i);
+        const z = pos.getZ(i);
+
+        const nx = norm ? Math.abs(norm.getX(i)) : 0;
+        const ny = norm ? Math.abs(norm.getY(i)) : 0;
+        const nz = norm ? Math.abs(norm.getZ(i)) : 1;
+
+        if (nx >= ny && nx >= nz) {
+          uvs[i * 2] = z * 3.0;
+          uvs[i * 2 + 1] = y * 3.0;
+        } else if (ny >= nx && ny >= nz) {
+          uvs[i * 2] = x * 3.0;
+          uvs[i * 2 + 1] = z * 3.0;
+        } else {
+          uvs[i * 2] = x * 3.0;
+          uvs[i * 2 + 1] = y * 3.0;
+        }
+      }
+
+      geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+      geometry.attributes.uv.needsUpdate = true;
+    }
+
+    // 3. Desktop WASD & Arrow Key Collision Locomotion Component
+    AFRAME.registerComponent('desktop-collision-controls', {
+      schema: {
+        speed: { type: 'number', default: 3.2 }
+      },
+      init: function () {
+        this.rig = document.getElementById('rig');
+        this.camera = document.getElementById('head') || this.el;
+        this.keys = {};
+
+        // Lock camera local position to origin of rig
+        if (this.camera && this.camera.object3D) {
+          this.camera.object3D.position.set(0, 1.6, 0);
+        }
+
+        window.addEventListener('keydown', (e) => {
+          this.keys[e.code] = true;
+        });
+        window.addEventListener('keyup', (e) => {
+          this.keys[e.code] = false;
+        });
+      },
+      tick: function (t, dt) {
+        if (!this.rig || !this.camera) return;
+
+        // Strict clamp: prevent camera object from ever drifting relative to rig
+        this.camera.object3D.position.set(0, 1.6, 0);
+
+        let forward = 0;
+        let strafe = 0;
+
+        if (this.keys['KeyW'] || this.keys['ArrowUp']) forward += 1;
+        if (this.keys['KeyS'] || this.keys['ArrowDown']) forward -= 1;
+        if (this.keys['KeyA'] || this.keys['ArrowLeft']) strafe -= 1;
+        if (this.keys['KeyD'] || this.keys['ArrowRight']) strafe += 1;
+
+        if (forward === 0 && strafe === 0) return;
+
+        if (forward !== 0 && strafe !== 0) {
+          forward *= 0.7071;
+          strafe *= 0.7071;
+        }
+
+        const deltaSec = dt / 1000;
+        const speed = this.data.speed * deltaSec;
+
+        const dir = new THREE.Vector3();
+        this.camera.object3D.getWorldDirection(dir);
+        dir.y = 0;
+        dir.normalize();
+
+        const fwdX = -dir.x;
+        const fwdZ = -dir.z;
+        const rightX = dir.z;
+        const rightZ = -dir.x;
+
+        const moveX = (fwdX * forward + rightX * strafe) * speed;
+        const moveZ = (fwdZ * forward + rightZ * strafe) * speed;
+
+        const curPos = this.rig.object3D.position;
+        const newPos = resolveMovement(curPos.x, curPos.z, moveX, moveZ, 0.4);
+
+        curPos.x = newPos.x;
+        curPos.z = newPos.z;
+      }
+    });
+
+    // 4. Quest 2 Left Thumbstick Smooth Locomotion Component with Collision
+    AFRAME.registerComponent('quest-smooth-locomotion', {
+      schema: {
+        speed: { type: 'number', default: 2.8 }
+      },
+      init: function () {
+        this.rig = document.getElementById('rig');
+        this.camera = document.getElementById('head');
+        this.axes = [0, 0];
+
+        this.el.addEventListener('axismove', (e) => {
+          this.axes = e.detail.axis;
+        });
+      },
+      tick: function (t, dt) {
+        if (!this.rig || !this.camera) return;
+        const [x, y] = this.axes;
+        const deadzone = 0.15;
+
+        if (Math.abs(x) > deadzone || Math.abs(y) > deadzone) {
+          const deltaSec = dt / 1000;
+          const speed = this.data.speed * deltaSec;
+
+          const dir = new THREE.Vector3();
+          this.camera.object3D.getWorldDirection(dir);
+          dir.y = 0;
+          dir.normalize();
+
+          const fwdX = -dir.x;
+          const fwdZ = -dir.z;
+          const rightX = dir.z;
+          const rightZ = -dir.x;
+
+          const moveX = (fwdX * (-y) + rightX * x) * speed;
+          const moveZ = (fwdZ * (-y) + rightZ * x) * speed;
+
+          const curPos = this.rig.object3D.position;
+          const newPos = resolveMovement(curPos.x, curPos.z, moveX, moveZ, 0.4);
+
+          curPos.x = newPos.x;
+          curPos.z = newPos.z;
+        }
+      }
+    });
+
+    // 4. Quest 2 Right Thumbstick Snap Turn Component
+    AFRAME.registerComponent('quest-snap-turn', {
+      schema: {
+        turnAngle: { type: 'number', default: 30 }
+      },
+      init: function () {
+        this.rig = document.getElementById('rig');
+        this.canTurn = true;
+
+        this.el.addEventListener('axismove', (e) => {
+          const x = e.detail.axis[0] || (e.detail.axis.length >= 3 ? e.detail.axis[2] : 0);
+          const deadzone = 0.65;
+
+          if (Math.abs(x) > deadzone) {
+            if (this.canTurn) {
+              const sign = x > 0 ? -1 : 1;
+              const rot = this.rig.getAttribute('rotation');
+              this.rig.setAttribute('rotation', {
+                x: rot.x,
+                y: rot.y + (sign * this.data.turnAngle),
+                z: rot.z
+              });
+              this.canTurn = false;
+              triggerHapticFeedback(this.el, 0.4, 40);
+            }
+          } else {
+            this.canTurn = true;
+          }
+        });
+      }
+    });
+
+    // 5. Procedural Web Audio Ambient Hearth Synthesizer
+    let audioCtx = null;
+    let ambientActive = false;
+    let crackleInterval = null;
+
+    function initHearthAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      toggleAmbientAudio();
+    }
+
+    function toggleAmbientAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+
+      ambientActive = !ambientActive;
+      const btn = document.getElementById('btn-audio-toggle');
+      if (btn) btn.classList.toggle('active', ambientActive);
+
+      if (ambientActive) {
+        startProceduralHearth();
+        showToast('Atmospheric Hearth Ambience: Activated');
+      } else {
+        stopProceduralHearth();
+        showToast('Atmospheric Hearth Ambience: Muted');
+      }
+    }
+
+    function startProceduralHearth() {
+      if (!audioCtx) return;
+
+      // Soft warm low-frequency drone (room acoustic resonance)
+      const droneOsc = audioCtx.createOscillator();
+      const droneGain = audioCtx.createGain();
+      const droneFilter = audioCtx.createBiquadFilter();
+
+      droneOsc.type = 'triangle';
+      droneOsc.frequency.setValueAtTime(65.4, audioCtx.currentTime); // C2 warm drone
+      droneFilter.type = 'lowpass';
+      droneFilter.frequency.setValueAtTime(140, audioCtx.currentTime);
+
+      droneGain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+      droneOsc.connect(droneFilter);
+      droneFilter.connect(droneGain);
+      droneGain.connect(audioCtx.destination);
+      droneOsc.start();
+
+      window.hearthDrone = { osc: droneOsc, gain: droneGain };
+
+      // Stochastic Fireplace Wood Crackles & Pops
+      crackleInterval = setInterval(() => {
+        if (!ambientActive || !audioCtx) return;
+        if (Math.random() < 0.65) {
+          playWoodPop(audioCtx);
+        }
+      }, 220);
+    }
+
+    function stopProceduralHearth() {
+      if (crackleInterval) clearInterval(crackleInterval);
+      if (window.hearthDrone && window.hearthDrone.gain) {
+        try {
+          window.hearthDrone.gain.gain.linearRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+          setTimeout(() => window.hearthDrone.osc.stop(), 350);
+        } catch (e) {}
+      }
+    }
+
+    function playWoodPop(ctx) {
+      const t = ctx.currentTime;
+      const len = 0.02 + Math.random() * 0.04;
+      const buf = ctx.createBuffer(1, ctx.sampleRate * len, ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < data.length; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (data.length * 0.3));
+      }
+      const noise = ctx.createBufferSource();
+      noise.buffer = buf;
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(1200 + Math.random() * 2400, t);
+      filter.Q.setValueAtTime(3.5, t);
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.05 + Math.random() * 0.09, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + len);
+
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+      noise.start(t);
+    }
+
+    function playProceduralSound(type) {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const t = audioCtx.currentTime;
+
+      if (type === 'door') {
+        // Heavy timber latch clunk
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(95, t);
+        osc.frequency.exponentialRampToValueAtTime(32, t + 0.28);
+        gain.gain.setValueAtTime(0.35, t);
+        gain.gain.exponentialRampToValueAtTime(0.01, t + 0.28);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(t);
+        osc.stop(t + 0.28);
+            } else if (type === 'chime' || type === 'greeting') {
+        // Melodic two-tone harmonic greeting chime (E5 -> G#5)
+        const osc1 = audioCtx.createOscillator();
+        const osc2 = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc1.type = 'sine';
+        osc2.type = 'sine';
+        osc1.frequency.setValueAtTime(659.25, t); // E5
+        osc2.frequency.setValueAtTime(830.61, t + 0.08); // G#5
+        gain.gain.setValueAtTime(0.18, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.65);
+        osc1.connect(gain);
+        osc2.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc1.start(t);
+        osc2.start(t + 0.08);
+        osc1.stop(t + 0.65);
+        osc2.stop(t + 0.65);
+      } else if (type === 'books') {
+        // Soft parchment flutter
+        const len = 0.12;
+        const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * len, audioCtx.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+        const noise = audioCtx.createBufferSource();
+        noise.buffer = buf;
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(1800, t);
+        const gain = audioCtx.createGain();
+        gain.gain.setValueAtTime(0.12, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + len);
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(audioCtx.destination);
+        noise.start(t);
+      } else {
+        // Gentle wood tap
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(220, t);
+        osc.frequency.exponentialRampToValueAtTime(60, t + 0.15);
+        gain.gain.setValueAtTime(0.2, t);
+        gain.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(t);
+        osc.stop(t + 0.15);
+      }
+    }
+
+    function triggerHapticFeedback(el, intensity = 0.5, duration = 50) {
+      const hands = [document.getElementById('left-hand'), document.getElementById('right-hand')];
+      hands.forEach(h => {
+        if (h && h.components && h.components['tracked-controls']) {
+          const controller = h.components['tracked-controls'].controller;
+          if (controller && controller.gamepad && controller.gamepad.hapticActuators && controller.gamepad.hapticActuators.length > 0) {
+            controller.gamepad.hapticActuators[0].pulse(intensity, duration);
+          }
+        }
+      });
+    }
+
+    let toastTimer = null;
+    function showToast(text) {
+      const toast = document.getElementById('manor-toast');
+      if (!toast) return;
+      toast.textContent = text;
+      toast.style.display = 'block';
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.style.display = 'none';
+      }, 4200);
+    }
+
+    
+    
+    
+    // 6. Autonomous Antigravity 3D Skeletal Avatar AI Component
+    AFRAME.registerComponent('antigravity-ai', {
+      schema: {
+        speed: { type: 'number', default: 1.15 }
+      },
+      init: function () {
+        this.camera = document.getElementById('head') || document.querySelector('a-camera');
+        this.meshEl = document.getElementById('avatar-mesh');
+        this.speechEl = document.getElementById('avatar-speech-text');
+        this.speechBubble = document.getElementById('avatar-speech-bubble');
+
+        // Safe Navigation Waypoints (Cleanly routing around coffee table and through open archways)
+        this.waypoints = [
+          { name: 'Hearth', x: 0, z: -2.3, waitTime: 7000 },
+          { name: 'Foyer West Path', x: -1.8, z: -1.1, waitTime: 500 },
+          { name: 'Library Archway', x: -4.0, z: 0.0, waitTime: 800 },
+          { name: 'Library Desk', x: -6.5, z: 0.0, waitTime: 8500 },
+          { name: 'Library Archives', x: -10.2, z: -1.8, waitTime: 7000 },
+          { name: 'Library Arch Return', x: -4.0, z: 0.0, waitTime: 800 },
+          { name: 'Foyer East Path', x: 1.8, z: -0.8, waitTime: 500 },
+          { name: 'Conservatory Archway', x: 4.0, z: 0.0, waitTime: 800 },
+          { name: 'Conservatory Vista', x: 8.5, z: -1.5, waitTime: 9000 },
+          { name: 'Conservatory Planters', x: 7.5, z: 1.6, waitTime: 6500 },
+          { name: 'Conservatory Arch Return', x: 4.0, z: 0.0, waitTime: 800 }
+        ];
+
+        this.currentWpIndex = 0;
+        this.state = 'WALKING'; // WALKING | WAITING | GREETING | DANCING
+        this.stateTimer = 0;
+        this.lastGreetingTime = 0;
+        this.animTime = 0;
+        this.greetDuration = 5500;
+        this.currentClip = '';
+        this.thumbsUpTriggered = false;
+
+        this.greetings = [
+          "Good to see you, Christopher! The hearth is warm today.",
+          "Welcome back to Haven Manor, Christopher! Feel free to explore.",
+          "Taking in the morning light, Christopher? The conservatory is peaceful.",
+          "Browsing the library, Christopher? I\'ve been organizing the folios.",
+          "It feels great to walk these halls together, Christopher."
+        ];
+
+        // Model Texture & Material Customization on load
+        if (this.meshEl) {
+          this.meshEl.addEventListener('model-loaded', () => {
+            const obj = this.meshEl.getObject3D('mesh');
+            if (!obj) return;
+
+            const textureLoader = new THREE.TextureLoader();
+            const coatTexture = textureLoader.load('./textures/avatar_coat.jpg?v=35');
+            coatTexture.wrapS = THREE.RepeatWrapping;
+            coatTexture.wrapT = THREE.RepeatWrapping;
+            coatTexture.flipY = false;
+            if (THREE.SRGBColorSpace) coatTexture.colorSpace = THREE.SRGBColorSpace;
+            coatTexture.anisotropy = 4;
+
+            const celestialBodyMat = new THREE.MeshStandardMaterial({
+              map: coatTexture,
+              metalness: 0.3,
+              roughness: 0.45
+            });
+
+            const antiqueBrassMat = new THREE.MeshStandardMaterial({
+              color: new THREE.Color('#d4af37'),
+              metalness: 0.9,
+              roughness: 0.2
+            });
+
+            obj.traverse((child) => {
+              if (child.isMesh) {
+                if (child.name.includes('Joints') || child.name === 'Beta_Joints') {
+                  child.material = antiqueBrassMat;
+                } else {
+                  child.material = celestialBodyMat;
+                }
+                child.material.needsUpdate = true;
+              }
+            });
+          });
+        }
+
+        setTimeout(() => this.setAnimation('walk', 'repeat', 0.3), 200);
+
+        this.el.addEventListener('click', () => {
+          this.triggerDirectInteraction();
+        });
+      },
+
+      setAnimation: function (clipName, loopMode = 'repeat', crossFade = 0.3) {
+        if (!this.meshEl || this.currentClip === clipName) return;
+        this.currentClip = clipName;
+        this.meshEl.setAttribute('animation-mixer', {
+          clip: clipName,
+          loop: loopMode,
+          crossFadeDuration: crossFade
+        });
+      },
+
+      tick: function (t, dt) {
+        const deltaSec = dt / 1000;
+        this.animTime += deltaSec;
+        const curPos = this.el.object3D.position;
+        const camPos = this.camera ? this.camera.object3D.getWorldPosition(new THREE.Vector3()) : new THREE.Vector3(0, 1.6, 0);
+
+        const distToPlayer = Math.hypot(curPos.x - camPos.x, curPos.z - camPos.z);
+
+        const now = Date.now();
+        if (distToPlayer < 3.2 && (now - this.lastGreetingTime > 20000) && this.state !== 'GREETING' && this.state !== 'DANCING') {
+          this.startGreeting(camPos, now);
+        }
+
+        if (this.state === 'GREETING') {
+          this.updateGreeting(deltaSec, camPos);
+        } else if (this.state === 'WALKING') {
+          this.updateWalking(deltaSec);
+        } else if (this.state === 'WAITING') {
+          this.updateWaiting(deltaSec, camPos);
+        } else if (this.state === 'DANCING') {
+          this.updateDancing(deltaSec);
+        }
+      },
+
+      startGreeting: function (camPos, now) {
+        this.state = 'GREETING';
+        this.stateTimer = 0;
+        this.lastGreetingTime = now;
+        this.thumbsUpTriggered = false;
+
+        this.setAnimation('agree', 'repeat', 0.25);
+
+        const greetingText = this.greetings[Math.floor(Math.random() * this.greetings.length)];
+        showToast(`✨ Antigravity: "${greetingText}"`);
+        playProceduralSound('chime');
+        triggerHapticFeedback(this.el, 0.4, 60);
+
+        // Show 3D in-world bubble when in VR mode; on desktop, the sleek HUD toast provides dialogue without obscuring the hearth
+        const scene = document.querySelector('a-scene');
+        const isVR = scene && scene.is && scene.is('vr-mode');
+        if (isVR && this.speechBubble) {
+          if (this.speechEl) this.speechEl.setAttribute('value', greetingText);
+          this.speechBubble.setAttribute('visible', 'true');
+        }
+      },
+
+      updateGreeting: function (deltaSec, camPos) {
+        this.stateTimer += deltaSec * 1000;
+        const curPos = this.el.object3D.position;
+
+        const targetAngle = Math.atan2(camPos.x - curPos.x, camPos.z - curPos.z);
+        this.el.object3D.rotation.y = THREE.MathUtils.lerp(this.el.object3D.rotation.y, targetAngle, deltaSec * 4);
+
+        if (this.stateTimer > 2800 && !this.thumbsUpTriggered) {
+          this.thumbsUpTriggered = true;
+          this.setAnimation('agree', 'repeat', 0.25);
+        }
+
+        if (this.stateTimer >= this.greetDuration) {
+          if (this.speechBubble) this.speechBubble.setAttribute('visible', 'false');
+          showToast(`Antigravity: "I'll let you look around!"`);
+          this.state = 'WALKING';
+          this.stateTimer = 0;
+          this.setAnimation('walk', 'repeat', 0.3);
+        }
+      },
+
+      updateWalking: function (deltaSec) {
+        const wp = this.waypoints[this.currentWpIndex];
+        const curPos = this.el.object3D.position;
+        const dx = wp.x - curPos.x;
+        const dz = wp.z - curPos.z;
+        const dist = Math.hypot(dx, dz);
+
+        if (dist < 0.35) {
+          this.state = 'WAITING';
+          this.stateTimer = 0;
+          this.setAnimation('idle', 'repeat', 0.35);
+          if (this.speechBubble) this.speechBubble.setAttribute('visible', 'false');
+          return;
+        }
+
+        const targetAngle = Math.atan2(dx, dz);
+        this.el.object3D.rotation.y = THREE.MathUtils.lerp(this.el.object3D.rotation.y, targetAngle, deltaSec * 5);
+
+        const speed = this.data.speed * deltaSec;
+        const moveX = Math.sin(targetAngle) * speed;
+        const moveZ = Math.cos(targetAngle) * speed;
+
+        const newPos = resolveMovement(curPos.x, curPos.z, moveX, moveZ, 0.28);
+        curPos.x = newPos.x;
+        curPos.z = newPos.z;
+      },
+
+      updateWaiting: function (deltaSec, camPos) {
+        this.stateTimer += deltaSec * 1000;
+        const wp = this.waypoints[this.currentWpIndex];
+
+        if (this.stateTimer >= wp.waitTime) {
+          this.currentWpIndex = (this.currentWpIndex + 1) % this.waypoints.length;
+          this.state = 'WALKING';
+          this.stateTimer = 0;
+          this.setAnimation('walk', 'repeat', 0.3);
+        }
+      },
+
+      updateDancing: function (deltaSec) {
+        this.stateTimer += deltaSec * 1000;
+        if (this.stateTimer > 4000) {
+          this.state = 'WALKING';
+          this.stateTimer = 0;
+          this.setAnimation('walk', 'repeat', 0.3);
+        }
+      },
+
+      triggerDirectInteraction: function () {
+        const lines = [
+          "I'm keeping the hearth burning and indexing our notes. What do you think of Haven Manor?",
+          "Notice the celestial constellation texture on this coat? It blends right into our sanctuary.",
+          "We've got solid physical boundaries now—no more walking through walls or furniture!",
+          "I'm glad we're building this from first principles. It feels alive."
+        ];
+        const line = lines[Math.floor(Math.random() * lines.length)];
+        showToast(`✨ Antigravity: "${line}"`);
+        playProceduralSound('chime');
+        triggerHapticFeedback(this.el, 0.6, 80);
+
+        this.state = 'DANCING';
+        this.stateTimer = 0;
+        this.setAnimation('agree', 'once', 0.2);
+      }
+    });
+
+    function toggleControls() {
+      const p = document.getElementById('controls-panel');
+      if (p) p.classList.toggle('hidden');
+    }
+  </script>
+</head>
+<body>
+
+  <!-- Top Navigation Header -->
+  <header class="top-header">
+    <div class="header-left">
+      <a href="https://github.com/augmentedthinker/haven-xr" class="btn-back" target="_blank" rel="noopener">
+        <span>🌅</span> Horizon · GitHub
+      </a>
+      <h1 class="header-title">HAVEN XR: THE LIVING MANOR</h1>
+      <span class="header-badge">Artifact 09</span>
+    </div>
+
+    <div class="header-right">
+      <button class="hud-btn" id="btn-audio-toggle" onclick="toggleAmbientAudio()" title="Toggle Atmospheric Hearth Audio">
+        <span>🔥</span> Hearth Audio
+      </button>
+      <button class="hud-btn" onclick="toggleControls()" title="Toggle Controls Guide">
+        <span>🧭</span> Guide
+      </button>
+    </div>
+  </header>
+
+  <!-- In-World Interaction Toast -->
+  <div id="manor-toast">Welcome to Haven Manor. Step freely through the rooms.</div>
+
+  <!-- Atmospheric HUD Controls Overlay -->
+  <aside class="controls-panel" id="controls-panel">
+    <div class="panel-title">
+      <span>EXPLORATION GUIDE</span>
+      <span style="font-size: 11px; cursor: pointer; color: var(--gold);" onclick="toggleControls()">✕</span>
+    </div>
+    <div class="panel-row">
+      <span class="key-tag">W</span><span class="key-tag">A</span><span class="key-tag">S</span><span class="key-tag">D</span>
+      <span>Walk & Strafe across rooms</span>
+    </div>
+    <div class="panel-row">
+      <span class="key-tag">Mouse</span>
+      <span>Look around & Click to inspect</span>
+    </div>
+    <div class="panel-row">
+      <span class="key-tag">Oculus Quest 2</span>
+      <span>Left thumbstick moves, right snap-turns</span>
+    </div>
+    <div class="panel-row" style="margin-top: 8px; font-size: 11px; color: var(--gold-light);">
+      <span>✨ High-Res AI Generative Textures: Oak herringbone, rustic hearth, antique library & conservatory.</span>
+    </div>
+  </aside>
+
+  <!-- ========================================================================= -->
+  <!-- A-FRAME 3D SCENE: WEBXR SPATIAL MANOR                                      -->
+  <!-- ========================================================================= -->
+  <a-scene
+    renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true"
+    vr-mode-ui="enabled: true"
+    loading-screen="dotsColor: #f59e0b; backgroundColor: #07090e">
+
+    <!-- Preloaded Assets & AI Generative Textures -->
+    <a-assets timeout="10000">
+      <img id="tex-wood" src="./textures/wood_floor.jpg">
+      <img id="tex-fireplace" src="./textures/fireplace.jpg">
+      <img id="tex-books" src="./textures/bookshelves.jpg">
+      <img id="tex-rug" src="./textures/persian_rug.jpg">
+      <img id="tex-door" src="./textures/exterior_door.jpg">
+      <img id="tex-plaster" src="./textures/plaster_wall.jpg">
+      <img id="tex-terracotta" src="./textures/terracotta_floor.jpg">
+      <img id="tex-window" src="./textures/window_dawn.jpg">
+      <img id="tex-avatar-coat" src="./textures/avatar_coat.jpg?v=30">
+      <a-asset-item id="avatar-model" src="./models/xbot.glb?v=30"></a-asset-item>
+    </a-assets>
+
+    <!-- Global Lighting Matrix -->
+    <!-- Soft warm ambient interior illumination -->
+    <a-entity light="type: ambient; color: #ffe8d6; intensity: 0.7;"></a-entity>
+
+    <!-- Morning Sun Streaming into Conservatory (East) -->
+    <a-entity light="type: directional; color: #fff7ed; intensity: 0.85; castShadow: false;" position="12 8 -2"></a-entity>
+
+    <!-- Foyer Central Warm Chandelier Illumination -->
+    <a-entity light="type: point; color: #fef3c7; intensity: 0.9; distance: 12; decay: 1.5;" position="0 3.6 -1.2"></a-entity>
+
+    <!-- Gentle Warm Fill Light for Living Hall & Avatar Textures -->
+    <a-entity light="type: directional; color: #fed7aa; intensity: 0.55; castShadow: false;" position="0 3 5"></a-entity>
+
+    <!-- PLAYER RIG & CAMERA (Supports Desktop WASD + Quest 2 Dual Touch) -->
+    <a-entity id="rig" position="0 0 1.2" rotation="0 0 0">
+      <!-- Head Camera with unconstrained controls disabled and collision locomotion enabled -->
+      <a-camera id="head" position="0 1.6 0" wasd-controls="enabled: false" look-controls="pointerLockEnabled: false" desktop-collision-controls="speed: 3.2">
+        <!-- Desktop Reticle for Click Interactions -->
+        <a-cursor
+          id="reticle"
+          color="#fbbf24"
+          opacity="0.8"
+          radius-inner="0.012"
+          radius-outer="0.02"
+          raycaster="objects: .clickable"
+          animation__click="property: scale; startEvents: click; easing: easeInCubic; dur: 120; from: 0.1 0.1 0.1; to: 1 1 1">
+        </a-cursor>
+      </a-camera>
+
+      <!-- Quest 2 Left Controller (Locomotion + Laser) -->
+      <a-entity
+        id="left-hand"
+        oculus-touch-controls="hand: left"
+        quest-smooth-locomotion="speed: 2.8"
+        laser-controls="hand: left"
+        raycaster="objects: .clickable; lineColor: #f59e0b; lineOpacity: 0.6">
+      </a-entity>
+
+      <!-- Quest 2 Right Controller (Snap Turn + Laser) -->
+      <a-entity
+        id="right-hand"
+        oculus-touch-controls="hand: right"
+        quest-snap-turn="turnAngle: 30"
+        laser-controls="hand: right"
+        raycaster="objects: .clickable; lineColor: #fbbf24; lineOpacity: 0.6">
+      </a-entity>
+    </a-entity>
+
+    <!-- ======================================================================= -->
+    
+    <!-- ======================================================================= -->
+    <!-- ======================================================================= -->
+    <!-- ANTIGRAVITY: THE LIVING COMPANION RIGGED SKELETAL AVATAR (X-BOT)         -->
+    <!-- ======================================================================= -->
+    <a-entity
+      id="antigravity-avatar"
+      class="clickable"
+      position="0 0 -2.2"
+      antigravity-ai="speed: 1.15">
+
+      <!-- 3D Rigged Humanoid Companion (Scale 0.78 gives ~1.42m companion height) -->
+      <a-entity
+        id="avatar-mesh"
+        gltf-model="#avatar-model"
+        scale="0.78 0.78 0.78"
+        position="0 0 0"
+        rotation="0 0 0"
+        animation-mixer="clip: idle; loop: repeat; crossFadeDuration: 0.35">
+      </a-entity>
+
+      <!-- Overhead Holographic Speech Bubble -->
+      <a-entity id="avatar-speech-bubble" position="0 1.95 0" visible="false">
+        <a-plane width="2.4" height="0.48" material="color: #07090e; opacity: 0.94; transparent: true; roughness: 0.8">
+          <a-text
+            id="avatar-speech-text"
+            value="Hello Christopher!"
+            align="center"
+            baseline="center"
+            side="front"
+            width="2.2"
+            color="#fef08a"
+            wrap-count="36"
+            position="0 0 0.03">
+          </a-text>
+        </a-plane>
+      </a-entity>
+
+      <!-- Permanent Overhead Title Banner -->
+      <a-entity position="0 1.72 0">
+        <a-text value="✦ ANTIGRAVITY ✦" align="center" color="#fbbf24" scale="0.42 0.42 0.42" position="0 0 0"></a-text>
+      </a-entity>
+
+      <!-- Floating Celestial Orbital Halo Ring -->
+      <a-torus
+        position="0 1.5 0"
+        radius="0.25"
+        radius-tubular="0.008"
+        rotation="70 0 0"
+        material="color: #fbbf24; emissive: #f59e0b; emissiveIntensity: 0.9; metalness: 0.9; roughness: 0.2">
+      </a-torus>
+
+    </a-entity>
+
+    <!-- ROOM 1: THE CENTRAL HEARTH FOYER (X: -4 to +4, Z: -4 to +4)             -->
+    <!-- ======================================================================= -->
+
+    <!-- Floor: Oak Herringbone Parquet -->
+    <a-plane
+      position="0 0 0"
+      rotation="-90 0 0"
+      width="8"
+      height="8"
+      material="src: #tex-wood; repeat: 4 4; roughness: 0.45; metalness: 0.05">
+    </a-plane>
+
+    <!-- Ceiling: Warm Cream Plaster -->
+    <a-plane
+      position="0 3.6 0"
+      rotation="90 0 0"
+      width="8"
+      height="8"
+      material="src: #tex-plaster; repeat: 3 3; roughness: 0.9">
+    </a-plane>
+
+    <!-- Rustic Timber Ceiling Crossbeams -->
+    <a-box position="0 3.5 -2" width="8" height="0.22" depth="0.28" material="color: #2b1810; roughness: 0.8"></a-box>
+    <a-box position="0 3.5 0" width="8" height="0.22" depth="0.28" material="color: #2b1810; roughness: 0.8"></a-box>
+    <a-box position="0 3.5 2" width="8" height="0.22" depth="0.28" material="color: #2b1810; roughness: 0.8"></a-box>
+
+    <!-- North Wall: Fieldstone Fireplace & Hearth -->
+    <!-- Central Stone Chimney & Hearth Breast -->
+    <a-box
+      class="clickable"
+      interactive-prop="title: Roaring Fieldstone Hearth; hint: Reclaimed timber mantel and glowing cedar logs.; sound: wood"
+      position="0 1.8 -3.95"
+      width="3.6"
+      height="3.6"
+      depth="0.25"
+      material="src: #tex-fireplace; roughness: 0.75">
+    </a-box>
+
+    <!-- Fireplace Dynamic Point Light (Warm Amber Flame Flicker) -->
+    <a-entity
+      position="0 1.2 -3.7"
+      light="type: point; color: #f97316; intensity: 2.2; distance: 8.5; decay: 1.8; castShadow: false;"
+      fire-flicker="baseIntensity: 2.2; variance: 0.55; speed: 11">
+    </a-entity>
+
+    <!-- North Wall Side Wings (Cream Plaster) -->
+    <a-plane position="-2.9 1.8 -3.98" rotation="0 0 0" width="2.2" height="3.6" material="src: #tex-plaster; repeat: 1 2; roughness: 0.85"></a-plane>
+    <a-plane position="2.9 1.8 -3.98" rotation="0 0 0" width="2.2" height="3.6" material="src: #tex-plaster; repeat: 1 2; roughness: 0.85"></a-plane>
+
+    <!-- South Wall: The Exterior Manor Threshold (The Door to the Outside) -->
+    <!-- Heavy Carved Oak Manor Exterior Door -->
+    <a-box
+      class="clickable"
+      interactive-prop="title: Exterior Manor Threshold; hint: Heavy oak door looking out onto the misty forest grounds. Exterior exploration opens next.; sound: door"
+      position="0 1.8 3.92"
+      rotation="0 180 0"
+      width="3.4"
+      height="3.6"
+      depth="0.2"
+      material="src: #tex-door; roughness: 0.7">
+    </a-box>
+
+    <!-- Lantern above Exterior Door -->
+    <a-entity position="0 2.9 3.65">
+      <a-sphere radius="0.08" material="color: #fbbf24; emissive: #f59e0b; emissiveIntensity: 1.2"></a-sphere>
+      <a-entity light="type: point; color: #fde047; intensity: 0.8; distance: 4.5; decay: 2;"></a-entity>
+    </a-entity>
+
+    <!-- South Wall Side Wings -->
+    <a-plane position="-2.8 1.8 3.98" rotation="0 180 0" width="2.4" height="3.6" material="src: #tex-plaster; repeat: 1 2; roughness: 0.85"></a-plane>
+    <a-plane position="2.8 1.8 3.98" rotation="0 180 0" width="2.4" height="3.6" material="src: #tex-plaster; repeat: 1 2; roughness: 0.85"></a-plane>
+
+    <!-- Ornate Persian Area Rug in Central Foyer -->
+    <a-plane
+      class="clickable"
+      interactive-prop="title: Antique Persian Silk & Wool Rug; hint: Intricate botanical medallion woven in deep burgundy and gold.; sound: wood"
+      position="0 0.015 -1.2"
+      rotation="-90 0 0"
+      width="3.6"
+      height="4.6"
+      material="src: #tex-rug; roughness: 0.95">
+    </a-plane>
+
+    <!-- Low Reclaimed Wood Hearth Table -->
+    <a-box position="0 0.22 -1.2" width="1.6" height="0.4" depth="0.8" material="color: #3b2316; roughness: 0.7"></a-box>
+    <!-- Table Candle -->
+    <a-cylinder position="0 0.46 -1.2" radius="0.05" height="0.12" material="color: #fef08a"></a-cylinder>
+    <a-sphere position="0 0.54 -1.2" radius="0.025" material="color: #fbbf24; emissive: #f59e0b; emissiveIntensity: 1.5"></a-sphere>
+    <a-entity position="0 0.6 -1.2" light="type: point; color: #fed7aa; intensity: 0.5; distance: 3; decay: 2;"></a-entity>
+
+    <!-- ======================================================================= -->
+    <!-- WEST ARCHWAY & ROOM 2: THE STUDY & LIBRARY (X: -4 to -12, Z: -4 to +4)  -->
+    <!-- ======================================================================= -->
+
+    <!-- Archway Partitions between Foyer and Library (X = -4) -->
+    <a-box position="-4 1.8 -2.9" width="0.25" height="3.6" depth="2.2" material="src: #tex-plaster; repeat: 1 2; roughness: 0.85"></a-box>
+    <a-box position="-4 1.8 2.9" width="0.25" height="3.6" depth="2.2" material="src: #tex-plaster; repeat: 1 2; roughness: 0.85"></a-box>
+    <!-- Arch Header Beam -->
+    <a-box position="-4 3.2 0" width="0.3" height="0.8" depth="3.6" material="color: #2b1810; roughness: 0.8"></a-box>
+
+    <!-- Library Floor -->
+    <a-plane
+      position="-8 0 0"
+      rotation="-90 0 0"
+      width="8"
+      height="8"
+      material="src: #tex-wood; repeat: 4 4; roughness: 0.45; metalness: 0.05">
+    </a-plane>
+
+    <!-- Library Ceiling -->
+    <a-plane
+      position="-8 3.6 0"
+      rotation="90 0 0"
+      width="8"
+      height="8"
+      material="src: #tex-plaster; repeat: 3 3; roughness: 0.9">
+    </a-plane>
+
+    <!-- Library Ceiling Timber Beams -->
+    <a-box position="-8 3.5 -2" width="8" height="0.22" depth="0.28" material="color: #2b1810; roughness: 0.8"></a-box>
+    <a-box position="-8 3.5 0" width="8" height="0.22" depth="0.28" material="color: #2b1810; roughness: 0.8"></a-box>
+    <a-box position="-8 3.5 2" width="8" height="0.22" depth="0.28" material="color: #2b1810; roughness: 0.8"></a-box>
+
+    <!-- West Outer Wall: Floor-to-Ceiling Mahogany Bookshelves -->
+    <a-box
+      class="clickable"
+      interactive-prop="title: Grand Library Bookshelves; hint: Hundreds of antique leather-bound volumes, chronicles, and blueprints.; sound: books"
+      position="-11.9 1.8 0"
+      rotation="0 90 0"
+      width="8"
+      height="3.6"
+      depth="0.2"
+      material="src: #tex-books; repeat: 2 1; roughness: 0.7">
+    </a-box>
+
+    <!-- North Library Wall: Secondary Bookshelf Wing -->
+    <a-box
+      class="clickable"
+      interactive-prop="title: Ancient Tomes & Anthologies; hint: Gilded folios on architectural design, philosophy, and history.; sound: books"
+      position="-8 1.8 -3.9"
+      width="8"
+      height="3.6"
+      depth="0.2"
+      material="src: #tex-books; repeat: 2 1; roughness: 0.7">
+    </a-box>
+
+    <!-- South Library Wall: Plaster with Reading Chair -->
+    <a-plane position="-8 1.8 3.98" rotation="0 180 0" width="8" height="3.6" material="src: #tex-plaster; repeat: 3 2; roughness: 0.85"></a-plane>
+
+    <!-- Library Scholar's Desk & Brass Lamp -->
+    <a-box position="-8 0.4 0" width="2.2" height="0.8" depth="1.1" material="color: #24140e; roughness: 0.65"></a-box>
+    <!-- Desk Lamp -->
+    <a-cylinder position="-8 0.85 0" radius="0.04" height="0.3" material="color: #d4af37; metalness: 0.8; roughness: 0.2"></a-cylinder>
+    <a-cone position="-8 1.02 0" radius-bottom="0.14" radius-top="0.04" height="0.12" material="color: #064e3b; roughness: 0.4"></a-cone>
+    <!-- Warm Desk Light -->
+    <a-entity position="-8 1.0 0" light="type: point; color: #fde047; intensity: 1.1; distance: 5.5; decay: 1.8;"></a-entity>
+
+    <!-- Small Persian Rug in Library -->
+    <a-plane
+      position="-8 0.015 0"
+      rotation="-90 0 0"
+      width="3.2"
+      height="4.2"
+      material="src: #tex-rug; roughness: 0.95">
+    </a-plane>
+
+    <!-- ======================================================================= -->
+    <!-- EAST ARCHWAY & ROOM 3: THE SUNROOM / CONSERVATORY (X: +4 to +12)        -->
+    <!-- ======================================================================= -->
+
+    <!-- Archway Partitions between Foyer and Sunroom (X = +4) -->
+    <a-box position="4 1.8 -2.9" width="0.25" height="3.6" depth="2.2" material="src: #tex-plaster; repeat: 1 2; roughness: 0.85"></a-box>
+    <a-box position="4 1.8 2.9" width="0.25" height="3.6" depth="2.2" material="src: #tex-plaster; repeat: 1 2; roughness: 0.85"></a-box>
+    <a-box position="4 3.2 0" width="0.3" height="0.8" depth="3.6" material="color: #2b1810; roughness: 0.8"></a-box>
+
+    <!-- Sunroom Floor: Terracotta & Mediterranean Ceramic Tile -->
+    <a-plane
+      position="8 0 0"
+      rotation="-90 0 0"
+      width="8"
+      height="8"
+      material="src: #tex-terracotta; repeat: 4 4; roughness: 0.55; metalness: 0.05">
+    </a-plane>
+
+    <!-- Sunroom Glass Atrium Ceiling -->
+    <a-plane
+      position="8 3.6 0"
+      rotation="90 0 0"
+      width="8"
+      height="8"
+      material="color: #e0f2fe; opacity: 0.35; transparent: true; roughness: 0.1">
+    </a-plane>
+    <!-- Skylight Steel Trusses -->
+    <a-box position="8 3.58 -2" width="8" height="0.08" depth="0.1" material="color: #0f172a"></a-box>
+    <a-box position="8 3.58 0" width="8" height="0.08" depth="0.1" material="color: #0f172a"></a-box>
+    <a-box position="8 3.58 2" width="8" height="0.08" depth="0.1" material="color: #0f172a"></a-box>
+
+    <!-- East Outer Wall: Panoramic Sunrise Forest French Windows -->
+    <a-box
+      class="clickable"
+      interactive-prop="title: Sunrise Conservatory Gallery; hint: Panoramic multi-pane glass looking out to a misty evergreen forest dawn.; sound: wood"
+      position="11.9 1.8 0"
+      rotation="0 -90 0"
+      width="8"
+      height="3.6"
+      depth="0.2"
+      material="src: #tex-window; repeat: 2 1; roughness: 0.25; metalness: 0.2">
+    </a-box>
+
+    <!-- North Sunroom Wall: Secondary French Windows -->
+    <a-box
+      class="clickable"
+      interactive-prop="title: Garden Vista Windows; hint: Morning rays warming the terracotta tiles.; sound: wood"
+      position="8 1.8 -3.9"
+      width="8"
+      height="3.6"
+      depth="0.2"
+      material="src: #tex-window; repeat: 2 1; roughness: 0.25; metalness: 0.2">
+    </a-box>
+
+    <!-- South Sunroom Wall: Plaster with Conservatory Planters -->
+    <a-plane position="8 1.8 3.98" rotation="0 180 0" width="8" height="3.6" material="src: #tex-plaster; repeat: 3 2; roughness: 0.85"></a-plane>
+
+    <!-- Decorative Indoor Terracotta Planters & Greenery -->
+    <a-cylinder position="6.2 0.35 -2.8" radius="0.32" height="0.7" material="color: #9a3412; roughness: 0.7"></a-cylinder>
+    <a-sphere position="6.2 0.85 -2.8" radius="0.45" material="color: #15803d; roughness: 0.85"></a-sphere>
+
+    <a-cylinder position="9.8 0.35 -2.8" radius="0.32" height="0.7" material="color: #9a3412; roughness: 0.7"></a-cylinder>
+    <a-sphere position="9.8 0.85 -2.8" radius="0.45" material="color: #166534; roughness: 0.85"></a-sphere>
+
+    <!-- Soft Morning Light Spill inside Sunroom -->
+    <a-entity position="8 2.5 0" light="type: point; color: #fef08a; intensity: 0.9; distance: 7; decay: 1.6;"></a-entity>
+
+  </a-scene>
+
+</body>
+</html>
