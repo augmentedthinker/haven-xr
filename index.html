@@ -290,13 +290,7 @@
           showToast(`${data.title}: ${data.hint}`);
         });
 
-        el.addEventListener('mouseenter', function () {
-          el.setAttribute('animation__hover', 'property: scale; to: 1.02 1.02 1.02; dur: 150; easing: easeOutQuad');
-        });
-
-        el.addEventListener('mouseleave', function () {
-          el.setAttribute('animation__hover', 'property: scale; to: 1 1 1; dur: 150; easing: easeOutQuad');
-        });
+        // Hover scaling removed to keep walls and props rock-solid in VR
       }
     });
 
@@ -469,6 +463,22 @@
       }
     });
 
+    // Helper: Robust Quest 2 WebXR Thumbstick Axis Extractor
+    function getWebXRThumbstick(axes) {
+      if (!axes || !axes.length) return [0, 0];
+      if (axes.length >= 4) {
+        // Meta Quest standard WebXR mapping: axes[2]=X, axes[3]=Y
+        if (Math.abs(axes[2]) > 0.05 || Math.abs(axes[3]) > 0.05) {
+          return [axes[2], axes[3]];
+        }
+        if (Math.abs(axes[0]) > 0.05 || Math.abs(axes[1]) > 0.05) {
+          return [axes[0], axes[1]];
+        }
+        return [0, 0];
+      }
+      return [axes[0] || 0, axes[1] || 0];
+    }
+
     // 4. Quest 2 Left Thumbstick Smooth Locomotion Component with Collision
     AFRAME.registerComponent('quest-smooth-locomotion', {
       schema: {
@@ -480,16 +490,37 @@
         this.axes = [0, 0];
 
         this.el.addEventListener('axismove', (e) => {
-          this.axes = e.detail.axis;
+          this.axes = getWebXRThumbstick(e.detail?.axis);
+        });
+        this.el.addEventListener('thumbstickmoved', (e) => {
+          if (e.detail) {
+            this.axes = [e.detail.x || 0, e.detail.y || 0];
+          }
         });
       },
       tick: function (t, dt) {
         if (!this.rig || !this.camera) return;
-        const [x, y] = this.axes;
-        const deadzone = 0.15;
 
+        let [x, y] = this.axes;
+
+        // Direct real-time polling of WebXR session gamepad (zero event lag)
+        const session = this.el.sceneEl?.renderer?.xr?.getSession();
+        if (session && session.inputSources) {
+          for (const source of session.inputSources) {
+            if (source.handedness === 'left' && source.gamepad) {
+              const [sx, sy] = getWebXRThumbstick(source.gamepad.axes);
+              if (Math.abs(sx) > 0.05 || Math.abs(sy) > 0.05) {
+                x = sx;
+                y = sy;
+              }
+              break;
+            }
+          }
+        }
+
+        const deadzone = 0.15;
         if (Math.abs(x) > deadzone || Math.abs(y) > deadzone) {
-          const deltaSec = dt / 1000;
+          const deltaSec = Math.min(dt / 1000, 0.05);
           const speed = this.data.speed * deltaSec;
 
           const dir = new THREE.Vector3();
@@ -506,7 +537,7 @@
           const moveZ = (fwdZ * (-y) + rightZ * x) * speed;
 
           const curPos = this.rig.object3D.position;
-          const newPos = resolveMovement(curPos.x, curPos.z, moveX, moveZ, 0.4);
+          const newPos = resolveMovement(curPos.x, curPos.z, moveX, moveZ, 0.38);
 
           curPos.x = newPos.x;
           curPos.z = newPos.z;
@@ -522,27 +553,49 @@
       init: function () {
         this.rig = document.getElementById('rig');
         this.canTurn = true;
+        this.rawX = 0;
 
         this.el.addEventListener('axismove', (e) => {
-          const x = e.detail.axis[0] || (e.detail.axis.length >= 3 ? e.detail.axis[2] : 0);
-          const deadzone = 0.65;
-
-          if (Math.abs(x) > deadzone) {
-            if (this.canTurn) {
-              const sign = x > 0 ? -1 : 1;
-              const rot = this.rig.getAttribute('rotation');
-              this.rig.setAttribute('rotation', {
-                x: rot.x,
-                y: rot.y + (sign * this.data.turnAngle),
-                z: rot.z
-              });
-              this.canTurn = false;
-              triggerHapticFeedback(this.el, 0.4, 40);
-            }
-          } else {
-            this.canTurn = true;
+          const [sx] = getWebXRThumbstick(e.detail?.axis);
+          this.rawX = sx;
+        });
+        this.el.addEventListener('thumbstickmoved', (e) => {
+          if (e.detail && typeof e.detail.x === 'number') {
+            this.rawX = e.detail.x;
           }
         });
+      },
+      tick: function () {
+        if (!this.rig) return;
+
+        let x = this.rawX;
+        const session = this.el.sceneEl?.renderer?.xr?.getSession();
+        if (session && session.inputSources) {
+          for (const source of session.inputSources) {
+            if (source.handedness === 'right' && source.gamepad) {
+              const [sx] = getWebXRThumbstick(source.gamepad.axes);
+              if (Math.abs(sx) > 0.05) x = sx;
+              break;
+            }
+          }
+        }
+
+        const deadzone = 0.65;
+        if (Math.abs(x) > deadzone) {
+          if (this.canTurn) {
+            const sign = x > 0 ? -1 : 1;
+            const rot = this.rig.getAttribute('rotation') || { x: 0, y: 0, z: 0 };
+            this.rig.setAttribute('rotation', {
+              x: rot.x,
+              y: rot.y + (sign * this.data.turnAngle),
+              z: rot.z
+            });
+            this.canTurn = false;
+            triggerHapticFeedback(this.el, 0.4, 40);
+          }
+        } else if (Math.abs(x) < 0.25) {
+          this.canTurn = true;
+        }
       }
     });
 
@@ -1082,19 +1135,17 @@
         </a-cursor>
       </a-camera>
 
-      <!-- Quest 2 Left Controller (Locomotion + Laser) -->
+      <!-- Quest 2 Left Controller (Dedicated Smooth Locomotion) -->
       <a-entity
         id="left-hand"
-        oculus-touch-controls="hand: left"
-        quest-smooth-locomotion="speed: 2.8"
-        laser-controls="hand: left"
-        raycaster="objects: .clickable; lineColor: #f59e0b; lineOpacity: 0.6">
+        oculus-touch-controls="hand: left; model: true"
+        quest-smooth-locomotion="speed: 2.8">
       </a-entity>
 
-      <!-- Quest 2 Right Controller (Snap Turn + Laser) -->
+      <!-- Quest 2 Right Controller (Snap Turn + Laser Pointer) -->
       <a-entity
         id="right-hand"
-        oculus-touch-controls="hand: right"
+        oculus-touch-controls="hand: right; model: true"
         quest-snap-turn="turnAngle: 30"
         laser-controls="hand: right"
         raycaster="objects: .clickable; lineColor: #fbbf24; lineOpacity: 0.6">
