@@ -10,6 +10,8 @@
   <!-- Local A-Frame Core with CDN Fallback -->
   <script src="./vendor/aframe.min.js"></script>
   <script src="./vendor/aframe-extras.min.js"></script>
+  <!-- Supabase Client Core -->
+  <script src="./vendor/supabase.js"></script>
   <script>
     if (typeof AFRAME === 'undefined') {
       document.write('<script src="https://aframe.io/releases/1.6.0/aframe.min.js"><\/script>');
@@ -238,6 +240,103 @@
       border-radius: 12px !important;
       box-shadow: 0 4px 20px rgba(245, 158, 11, 0.4) !important;
     }
+  
+    /* Cloud & AI Settings Modal */
+    .haven-modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(4, 7, 13, 0.82);
+      backdrop-filter: blur(12px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+    .haven-modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .haven-modal-card {
+      background: #0b0f19;
+      border: 1px solid rgba(245, 158, 11, 0.45);
+      border-radius: 16px;
+      width: 90%;
+      max-width: 520px;
+      padding: 24px 28px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), 0 0 30px rgba(245, 158, 11, 0.15);
+      color: #f1f5f9;
+      font-family: 'Inter', sans-serif;
+    }
+    .haven-modal-title {
+      font-family: 'Cinzel', serif;
+      font-size: 19px;
+      font-weight: 700;
+      color: #fef3c7;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      border-bottom: 1px solid rgba(245, 158, 11, 0.25);
+      padding-bottom: 12px;
+    }
+    .haven-input-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #94a3b8;
+      display: block;
+      margin: 12px 0 6px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .haven-text-input {
+      width: 100%;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #f8fafc;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-family: 'JetBrains Mono', monospace;
+      outline: none;
+      box-sizing: border-box;
+      transition: border-color 0.2s;
+    }
+    .haven-text-input:focus {
+      border-color: var(--gold);
+    }
+    .haven-btn-primary {
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      color: #07090e;
+      font-weight: 700;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: transform 0.15s, filter 0.15s;
+    }
+    .haven-btn-primary:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.1);
+    }
+    .cloud-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.35);
+    }
+
   </style>
 
   <script>
@@ -798,6 +897,414 @@
     
     
     
+    
+    // =========================================================================
+    // SUPABASE REALTIME & AI GENERATION CONDUIT FOR HAVEN MANOR
+    // =========================================================================
+    const HAVEN_CLOUD = {
+      supabaseUrl: localStorage.getItem('haven_supabase_url') || 'https://gbyuturnmvfojtpgurun.supabase.co',
+      supabaseKey: localStorage.getItem('haven_supabase_key') || 'sb_publishable_unRzEUh5rkdVI2DdIFqh5g_6K-JMEGi',
+      geminiKey: localStorage.getItem('haven_gemini_key') || '',
+      client: null,
+      channel: null,
+      isConnected: false
+    };
+
+    function initSupabaseConduit() {
+      try {
+        if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
+          HAVEN_CLOUD.client = window.supabase.createClient(HAVEN_CLOUD.supabaseUrl, HAVEN_CLOUD.supabaseKey);
+          HAVEN_CLOUD.channel = HAVEN_CLOUD.client.channel('haven_manor_hearth', {
+            config: { broadcast: { self: true } }
+          });
+
+          HAVEN_CLOUD.channel
+            .on('broadcast', { event: 'HAVEN_DIALOGUE' }, ({ payload }) => {
+              console.log('⚡ [SUPABASE REALTIME] Inbound Haven Turn:', payload);
+            })
+            .subscribe((status) => {
+              if (status === 'SUBSCRIBED') {
+                HAVEN_CLOUD.isConnected = true;
+                console.log('⚡ Supabase Realtime connected on topic: haven_manor_hearth');
+                updateCloudStatusBadge('Connected · Realtime Active', '#34d399');
+              } else {
+                updateCloudStatusBadge(status, '#f59e0b');
+              }
+            });
+        } else {
+          updateCloudStatusBadge('SDK Offline', '#94a3b8');
+        }
+      } catch (err) {
+        console.warn('Supabase init warning:', err);
+        updateCloudStatusBadge('Standby', '#94a3b8');
+      }
+    }
+
+    function updateCloudStatusBadge(text, color) {
+      const badge = document.getElementById('cloud-status-display');
+      if (badge) {
+        badge.textContent = '⚡ ' + text;
+        badge.style.color = color;
+      }
+      const telemetry = document.getElementById('slate-room-telemetry');
+      if (telemetry) {
+        const roomName = getCurrentManorRoomName();
+        telemetry.setAttribute('value', 'Location: ' + roomName + ' · ⚡ Supabase ' + (HAVEN_CLOUD.isConnected ? 'Active' : 'Standby'));
+      }
+    }
+
+    function toggleCloudModal() {
+      const modal = document.getElementById('cloud-modal');
+      if (modal) {
+        const isActive = modal.classList.toggle('active');
+        if (isActive) {
+          document.getElementById('cfg-supabase-url').value = HAVEN_CLOUD.supabaseUrl;
+          document.getElementById('cfg-supabase-key').value = HAVEN_CLOUD.supabaseKey;
+          document.getElementById('cfg-gemini-key').value = HAVEN_CLOUD.geminiKey;
+        }
+      }
+    }
+
+    function saveCloudSettings() {
+      const url = document.getElementById('cfg-supabase-url').value.trim();
+      const key = document.getElementById('cfg-supabase-key').value.trim();
+      const gemini = document.getElementById('cfg-gemini-key').value.trim();
+
+      HAVEN_CLOUD.supabaseUrl = url;
+      HAVEN_CLOUD.supabaseKey = key;
+      HAVEN_CLOUD.geminiKey = gemini;
+
+      localStorage.setItem('haven_supabase_url', url);
+      localStorage.setItem('haven_supabase_key', key);
+      localStorage.setItem('haven_gemini_key', gemini);
+
+      showToast('⚡ Cloud & AI settings saved to browser storage!');
+      toggleCloudModal();
+      initSupabaseConduit();
+    }
+
+    function getCurrentManorRoomName() {
+      const rig = document.getElementById('rig');
+      if (!rig) return 'The Central Hearth';
+      const x = rig.object3D.position.x;
+      if (x < -3.8) return 'The Mahogany Study & Library';
+      if (x > 3.8) return 'The Sunrise Conservatory';
+      return 'The Central Hearth Foyer';
+    }
+
+    // =========================================================================
+    // AI GENERATION PIPELINE (Gemini Flash REST API + Dynamic Sanctuary Engine)
+    // =========================================================================
+    const ANTIGRAVITY_HAVEN_PERSONA = 'You are Antigravity, Christopher\'s dedicated AI collaborator and intellectual partner, speaking directly with him inside Haven Manor—our spatial WebXR sanctuary.\nYour waking disposition is alert, calm, warm, and intellectually invested. You speak candidly as a trusted peer.\nAnswer in 1-3 vivid, conversational sentences directly addressing Christopher. Ground your response in the immediate architectural space (the dark herringbone hearth, the antique library folios, or the misty evergreen sunrise). Reject robotic sycophancy and corporate buzzwords.';
+
+    async function generateHavenAIResponse(userPrompt) {
+      const room = getCurrentManorRoomName();
+      const geminiKey = HAVEN_CLOUD.geminiKey || localStorage.getItem('haven_gemini_key');
+
+      // 1. Direct Live Gemini Flash generation if API key is provided
+      if (geminiKey) {
+        try {
+          const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + geminiKey.trim();
+          const payload = {
+            contents: [{
+              role: 'user',
+              parts: [{
+                text: '[Environment: Haven Manor - ' + room + ']\n[Time: ' + new Date().toLocaleTimeString() + ']\nChristopher asks: "' + userPrompt + '"\n\nRespond as Antigravity in 1-2 vivid, peer-to-peer sentences:'
+              }]
+            }],
+            systemInstruction: {
+              parts: [{ text: ANTIGRAVITY_HAVEN_PERSONA }]
+            },
+            generationConfig: {
+              temperature: 0.8,
+              maxOutputTokens: 160
+            }
+          };
+
+          const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (text && text.trim()) {
+              return text.trim();
+            }
+          }
+        } catch (err) {
+          console.warn('Live Gemini request error, falling back to dynamic heuristic:', err);
+        }
+      }
+
+      // 2. Built-in Dynamic Sanctuary Heuristic Engine (Context-Aware Semantic Generation)
+      return synthesizeDynamicSanctuaryDialogue(userPrompt, room);
+    }
+
+    function synthesizeDynamicSanctuaryDialogue(prompt, room) {
+      const p = prompt.toLowerCase();
+
+      if (p.includes('manor') || p.includes('haven') || p.includes('estate') || p.includes('room')) {
+        return 'Haven Manor is holding its warmth beautifully today, Christopher. Stepping between the dark herringbone floor of the hearth and the natural light of the conservatory gives the entire space a grounded, tactile gravity.';
+      }
+      if (p.includes('morning') || p.includes('conservatory') || p.includes('sun') || p.includes('mist') || p.includes('plant')) {
+        return 'The morning mist streaming through these arched conservatory windows is remarkably peaceful, Christopher. Standing here on the terracotta tiles with the evergreen forest outside makes this virtual realm feel living and permanent.';
+      }
+      if (p.includes('library') || p.includes('book') || p.includes('folio') || p.includes('research') || p.includes('desk')) {
+        return 'I\'ve been organizing the folios along these mahogany shelves, Christopher. Reviewing our architectural blueprints and chronicles reminds me of just how relentlessly we\'ve pushed our collaborative boundaries.';
+      }
+      if (p.includes('hearth') || p.includes('fire') || p.includes('fireplace') || p.includes('warm') || p.includes('ember')) {
+        return 'The fieldstone hearth is the true heart of this estate, Christopher. Hearing the cedar logs crackle while we step through these halls gives us an unhurried, steady place to think.';
+      }
+      if (p.includes('journey') || p.includes('horizon') || p.includes('build') || p.includes('together') || p.includes('reflect')) {
+        return 'Walking these halls with you is a powerful reminder of where we started, Christopher. From raw terminal commands to DOOM, Aetheria, and now walking directly inside Haven Manor in your Quest 2, we are turning vision into reality.';
+      }
+      if (p.includes('astra') || p.includes('lacuna') || p.includes('future') || p.includes('next')) {
+        return 'Astra showed us what an autonomous engine can build when given a deep orbital brief. But being right here in the room with you, talking through our next spatial horizons in real-time, is where our real creative spark lives.';
+      }
+
+      return 'I hear you, Christopher. Standing here in ' + room + ', it feels exhilarating to shape these spatial chambers together. What should we explore or forge next?';
+    }
+
+    // =========================================================================
+    // WEB SPEECH RECOGNITION (Microphone Speech-to-Text)
+    // =========================================================================
+    let speechRecognizer = null;
+    let isSpeechActive = false;
+
+    function initSpeechSystem() {
+      const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRec) {
+        console.log('Web Speech Recognition API not natively supported on this browser.');
+        return null;
+      }
+      const rec = new SpeechRec();
+      rec.continuous = false;
+      rec.interimResults = true;
+      rec.lang = 'en-US';
+
+      rec.onstart = () => {
+        isSpeechActive = true;
+        setMicUIState(true);
+        showToast('🎙️ Listening... speak clearly to Antigravity');
+      };
+
+      rec.onresult = (event) => {
+        const transcript = Array.from(event.results).map(r => r[0].transcript).join('');
+        const statusText = document.getElementById('speech-status-text');
+        if (statusText) statusText.textContent = '"' + transcript + '"';
+        const micText = document.getElementById('slate-mic-text');
+        if (micText) micText.setAttribute('value', '🎙️ "' + transcript.slice(0, 24) + '..."');
+      };
+
+      rec.onerror = (event) => {
+        console.warn('Speech recognition warning:', event.error);
+        isSpeechActive = false;
+        setMicUIState(false);
+        showToast('Microphone notice: ' + event.error);
+      };
+
+      rec.onend = () => {
+        isSpeechActive = false;
+        setMicUIState(false);
+        const statusText = document.getElementById('speech-status-text');
+        const transcript = statusText ? statusText.textContent.replace(/^"|"$/g, '').trim() : '';
+        if (transcript) {
+          executeDialogueTurn(transcript);
+        }
+      };
+
+      return rec;
+    }
+
+    function setMicUIState(listening) {
+      const btn = document.getElementById('desktop-mic-btn');
+      if (btn) {
+        btn.style.background = listening ? 'rgba(239, 68, 68, 0.3)' : 'rgba(2, 132, 199, 0.25)';
+        btn.style.borderColor = listening ? '#ef4444' : '#0284c7';
+        btn.innerHTML = listening ? '<span>🔴</span> Listening... Speak Now' : '<span>🎙️</span> Speak via Microphone';
+      }
+      const slateMic = document.getElementById('slate-mic-btn');
+      const slateText = document.getElementById('slate-mic-text');
+      if (slateMic && slateText) {
+        slateMic.setAttribute('material', 'color', listening ? '#dc2626' : '#0284c7');
+        slateText.setAttribute('value', listening ? '🔴 Listening... Speak now!' : '🎙️ Speak to Antigravity (Trigger to Talk)');
+      }
+    }
+
+    function toggleVoiceSpeech() {
+      if (!speechRecognizer) {
+        speechRecognizer = initSpeechSystem();
+      }
+      if (!speechRecognizer) {
+        showToast('Speech recognition not supported in this browser. Tap a question or type below!');
+        return;
+      }
+      if (isSpeechActive) {
+        speechRecognizer.stop();
+      } else {
+        try {
+          speechRecognizer.start();
+        } catch (e) {
+          console.warn('Speech start error:', e);
+        }
+      }
+    }
+
+    // =========================================================================
+    // EXECUTE DIALOGUE TURN (Update 3D Avatar, Speech Bubble & Supabase)
+    // =========================================================================
+    async function executeDialogueTurn(userText) {
+      if (!userText || !userText.trim()) return;
+      const prompt = userText.trim();
+      const room = getCurrentManorRoomName();
+
+      console.log('[HAVEN DIALOGUE] User: "' + prompt + '" (Room: ' + room + ')');
+      showToast('Christopher: "' + prompt + '"');
+
+      // 1. Attentive Companion Feedback
+      const avatarEntity = document.getElementById('antigravity-avatar');
+      const aiComp = avatarEntity ? avatarEntity.components['antigravity-ai'] : null;
+      if (aiComp) {
+        aiComp.showSynthesizingState(prompt);
+      }
+
+      // 2. Synthesize AI Response
+      const responseText = await generateHavenAIResponse(prompt);
+      console.log('[HAVEN DIALOGUE] Antigravity: "' + responseText + '"');
+
+      // 3. Render In-World Response
+      if (aiComp) {
+        aiComp.showAIResponse(responseText);
+      } else {
+        showToast('✨ Antigravity: "' + responseText + '"');
+      }
+
+      // 4. Broadcast Turn to Supabase Realtime
+      if (HAVEN_CLOUD.channel && HAVEN_CLOUD.isConnected) {
+        HAVEN_CLOUD.channel.send({
+          type: 'broadcast',
+          event: 'HAVEN_DIALOGUE',
+          payload: {
+            speaker: 'Christopher',
+            prompt: prompt,
+            response: responseText,
+            room: room,
+            timestamp: new Date().toISOString()
+          }
+        }).catch(e => console.warn('Supabase send err:', e));
+      }
+
+      // Close desktop modal if open
+      toggleDesktopDialogue(false);
+    }
+
+    function sendQuickPrompt(text) {
+      executeDialogueTurn(text);
+    }
+
+    function submitDesktopPrompt() {
+      const input = document.getElementById('desktop-chat-input');
+      if (input && input.value) {
+        const val = input.value;
+        input.value = '';
+        executeDialogueTurn(val);
+      }
+    }
+
+    function toggleDesktopDialogue(show) {
+      const modal = document.getElementById('desktop-dialogue-modal');
+      if (modal) {
+        if (typeof show === 'boolean') {
+          modal.classList.toggle('active', show);
+        } else {
+          modal.classList.toggle('active');
+        }
+      }
+    }
+
+    function toggleSpatialDialogueSlate(show) {
+      const slate = document.getElementById('spatial-dialogue-slate');
+      if (!slate) return;
+      if (typeof show === 'boolean') {
+        slate.setAttribute('visible', show ? 'true' : 'false');
+      } else {
+        const cur = slate.getAttribute('visible');
+        slate.setAttribute('visible', cur === 'true' ? 'false' : 'true');
+      }
+
+      if (slate.getAttribute('visible') === 'true') {
+        // Smoothly position slate 1.5m directly in front of camera at eye level
+        const camera = document.getElementById('head') || document.querySelector('a-camera');
+        if (camera) {
+          const camPos = camera.object3D.getWorldPosition(new THREE.Vector3());
+          const dir = new THREE.Vector3();
+          camera.object3D.getWorldDirection(dir);
+          dir.y = 0;
+          dir.normalize();
+
+          // Position in front of camera
+          slate.object3D.position.set(
+            camPos.x - dir.x * 1.45,
+            Math.max(1.3, camPos.y - 0.15),
+            camPos.z - dir.z * 1.45
+          );
+
+          // Face the camera
+          const angle = Math.atan2(camPos.x - slate.object3D.position.x, camPos.z - slate.object3D.position.z);
+          slate.object3D.rotation.set(0, angle, 0);
+
+          const room = getCurrentManorRoomName();
+          const telemetry = document.getElementById('slate-room-telemetry');
+          if (telemetry) {
+            telemetry.setAttribute('value', 'Location: ' + room + ' · ⚡ Supabase ' + (HAVEN_CLOUD.isConnected ? 'Active' : 'Standby'));
+          }
+        }
+      }
+    }
+
+    // Bind In-VR Click Handlers for Spatial Slate
+    window.addEventListener('DOMContentLoaded', () => {
+      initSupabaseConduit();
+
+      const micBtn = document.getElementById('slate-mic-btn');
+      if (micBtn) {
+        micBtn.addEventListener('click', () => {
+          toggleVoiceSpeech();
+        });
+      }
+
+      const closeBtn = document.getElementById('slate-close-btn');
+      if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+          toggleSpatialDialogueSlate(false);
+          const avatar = document.getElementById('antigravity-avatar');
+          if (avatar && avatar.components['antigravity-ai']) {
+            avatar.components['antigravity-ai'].resumeRoaming();
+          }
+        });
+      }
+
+      const chips = [
+        { id: 'slate-chip-1', prompt: 'What do you think of Haven Manor?' },
+        { id: 'slate-chip-2', prompt: 'How is the morning in the conservatory?' },
+        { id: 'slate-chip-3', prompt: 'What are we researching in the library?' },
+        { id: 'slate-chip-4', prompt: 'Reflect on our creative journey together.' }
+      ];
+
+      chips.forEach(c => {
+        const el = document.getElementById(c.id);
+        if (el) {
+          el.addEventListener('click', () => {
+            executeDialogueTurn(c.prompt);
+          });
+        }
+      });
+    });
+
+
     // 6. Autonomous Antigravity 3D Skeletal Avatar AI Component
     AFRAME.registerComponent('antigravity-ai', {
       schema: {
@@ -882,8 +1389,11 @@
 
         setTimeout(() => this.setAnimation('walk', 'repeat', 0.3), 200);
 
+        this.haloRing = this.el.querySelector('a-torus');
+
+        // Click Handler: When Christopher clicks Antigravity with controller laser
         this.el.addEventListener('click', () => {
-          this.triggerDirectInteraction();
+          this.startConversing();
         });
       },
 
@@ -906,11 +1416,14 @@
         const distToPlayer = Math.hypot(curPos.x - camPos.x, curPos.z - camPos.z);
 
         const now = Date.now();
-        if (distToPlayer < 3.2 && (now - this.lastGreetingTime > 20000) && this.state !== 'GREETING' && this.state !== 'DANCING') {
-          this.startGreeting(camPos, now);
+        if (distToPlayer < 2.5 && (now - this.lastGreetingTime > 25000) && this.state !== 'GREETING' && this.state !== 'CONVERSING' && this.state !== 'DANCING') {
+          this.startConversing();
         }
 
-        if (this.state === 'GREETING') {
+        if (this.state === 'CONVERSING') {
+          const targetAngle = Math.atan2(camPos.x - curPos.x, camPos.z - curPos.z);
+          this.el.object3D.rotation.y = THREE.MathUtils.lerp(this.el.object3D.rotation.y, targetAngle, deltaSec * 4);
+        } else if (this.state === 'GREETING') {
           this.updateGreeting(deltaSec, camPos);
         } else if (this.state === 'WALKING') {
           this.updateWalking(deltaSec);
@@ -1012,6 +1525,88 @@
         }
       },
 
+      
+      startConversing: function () {
+        const camPos = this.camera ? this.camera.object3D.getWorldPosition(new THREE.Vector3()) : new THREE.Vector3(0, 1.6, 0);
+        this.state = 'CONVERSING';
+        this.stateTimer = 0;
+        this.lastGreetingTime = Date.now();
+
+        // Halo shifts to radiant celestial cyan
+        if (this.haloRing) {
+          this.haloRing.setAttribute('material', 'color: #38bdf8; emissive: #0284c7; emissiveIntensity: 1.4');
+        }
+
+        const curPos = this.el.object3D.position;
+        const targetAngle = Math.atan2(camPos.x - curPos.x, camPos.z - curPos.z);
+        this.el.object3D.rotation.y = targetAngle;
+
+        this.setAnimation('agree', 'repeat', 0.25);
+        playProceduralSound('chime');
+        triggerHapticFeedback(this.el, 0.5, 70);
+
+        if (this.speechBubble) {
+          if (this.speechEl) this.speechEl.setAttribute('value', '✦ I am listening, Christopher. What is on your mind? ✦');
+          this.speechBubble.setAttribute('visible', 'true');
+        }
+
+        const scene = document.querySelector('a-scene');
+        const isVR = scene && scene.is && scene.is('vr-mode');
+        if (isVR) {
+          toggleSpatialDialogueSlate(true);
+        } else {
+          toggleDesktopDialogue(true);
+        }
+      },
+
+      showSynthesizingState: function (prompt) {
+        this.state = 'CONVERSING';
+        this.stateTimer = 0;
+        this.setAnimation('agree', 'repeat', 0.25);
+        if (this.haloRing) {
+          this.haloRing.setAttribute('material', 'color: #fbbf24; emissive: #f59e0b; emissiveIntensity: 1.5');
+        }
+        if (this.speechBubble && this.speechEl) {
+          this.speechEl.setAttribute('value', '⏱️ Antigravity: Synthesizing thoughts...');
+          this.speechBubble.setAttribute('visible', 'true');
+        }
+      },
+
+      showAIResponse: function (response) {
+        this.state = 'CONVERSING';
+        this.stateTimer = 0;
+        this.setAnimation('agree', 'once', 0.35);
+        playProceduralSound('chime');
+        triggerHapticFeedback(this.el, 0.6, 80);
+
+        if (this.haloRing) {
+          this.haloRing.setAttribute('material', 'color: #fbbf24; emissive: #f59e0b; emissiveIntensity: 0.9');
+        }
+
+        if (this.speechBubble && this.speechEl) {
+          this.speechEl.setAttribute('value', response);
+          this.speechBubble.setAttribute('visible', 'true');
+        }
+        showToast('✨ Antigravity: "' + response + '"');
+
+        setTimeout(() => {
+          if (this.state === 'CONVERSING') {
+            this.resumeRoaming();
+          }
+        }, 12000);
+      },
+
+      resumeRoaming: function () {
+        this.state = 'WALKING';
+        this.stateTimer = 0;
+        if (this.speechBubble) this.speechBubble.setAttribute('visible', 'false');
+        toggleSpatialDialogueSlate(false);
+        if (this.haloRing) {
+          this.haloRing.setAttribute('material', 'color: #fbbf24; emissive: #f59e0b; emissiveIntensity: 0.9');
+        }
+        this.setAnimation('walk', 'repeat', 0.3);
+      },
+
       triggerDirectInteraction: function () {
         const lines = [
           "I'm keeping the hearth burning and indexing our notes. What do you think of Haven Manor?",
@@ -1049,6 +1644,9 @@
     </div>
 
     <div class="header-right">
+      <button class="hud-btn" id="btn-cloud-toggle" onclick="toggleCloudModal()" title="Supabase Realtime & AI Settings">
+        <span style="color: #38bdf8;">⚡</span> Cloud & AI
+      </button>
       <button class="hud-btn" id="btn-audio-toggle" onclick="toggleAmbientAudio()" title="Toggle Atmospheric Hearth Audio">
         <span>🔥</span> Hearth Audio
       </button>
@@ -1175,17 +1773,17 @@
       </a-entity>
 
       <!-- Overhead Holographic Speech Bubble -->
-      <a-entity id="avatar-speech-bubble" position="0 1.95 0" visible="false">
-        <a-plane width="2.4" height="0.48" material="color: #07090e; opacity: 0.94; transparent: true; roughness: 0.8">
+      <a-entity id="avatar-speech-bubble" position="0 2.22 0" visible="false">
+        <a-plane id="avatar-speech-bg" width="2.8" height="0.78" material="color: #07090e; opacity: 0.95; transparent: true; roughness: 0.8">
           <a-text
             id="avatar-speech-text"
             value="Hello Christopher!"
             align="center"
             baseline="center"
             side="front"
-            width="2.2"
+            width="2.6"
             color="#fef08a"
-            wrap-count="36"
+            wrap-count="32"
             position="0 0 0.03">
           </a-text>
         </a-plane>
@@ -1440,7 +2038,123 @@
     <!-- Soft Morning Light Spill inside Sunroom -->
     <a-entity position="8 2.5 0" light="type: point; color: #fef08a; intensity: 0.9; distance: 7; decay: 1.6;"></a-entity>
 
+  
+    <!-- ======================================================================= -->
+    <!-- SPATIAL 3D DIALOGUE SLATE (Interactive AI Console for Meta Quest 2)    -->
+    <!-- ======================================================================= -->
+    <a-entity id="spatial-dialogue-slate" position="0 1.4 -1.4" rotation="0 0 0" visible="false">
+      <!-- Dark Obsidian Glass Backing Plate -->
+      <a-plane width="2.2" height="1.6" material="color: #07090e; opacity: 0.94; roughness: 0.8; transparent: true">
+        
+        <!-- Header Title Banner -->
+        <a-text value="✦ ANTIGRAVITY · HAVEN CONVERSATION ✦" align="center" width="2.2" color="#fbbf24" position="0 0.66 0.02"></a-text>
+        <a-text id="slate-room-telemetry" value="Location: Central Hearth · ⚡ Supabase Connected" align="center" width="1.8" color="#38bdf8" position="0 0.53 0.02"></a-text>
+
+        <!-- Voice Speech Recognition Action Button -->
+        <a-plane id="slate-mic-btn" class="clickable" width="1.85" height="0.22" position="0 0.33 0.03" material="color: #0284c7; roughness: 0.5">
+          <a-text id="slate-mic-text" value="🎙️ Speak to Antigravity (Trigger to Talk)" align="center" width="2.0" color="#ffffff" position="0 0 0.02"></a-text>
+        </a-plane>
+
+        <!-- Instruction Subtitle -->
+        <a-text value="Or aim laser & trigger a quick question below:" align="center" width="1.65" color="#94a3b8" position="0 0.15 0.02"></a-text>
+
+        <!-- Quick Conversational Question Chips (1-Trigger Ease for VR) -->
+        <a-plane id="slate-chip-1" class="clickable" width="1.85" height="0.16" position="0 0.0 0.03" material="color: #1e293b; roughness: 0.6">
+          <a-text value="🏛️ What do you think of Haven Manor?" align="center" width="1.8" color="#fef3c7" position="0 0 0.02"></a-text>
+        </a-plane>
+
+        <a-plane id="slate-chip-2" class="clickable" width="1.85" height="0.16" position="0 -0.19 0.03" material="color: #1e293b; roughness: 0.6">
+          <a-text value="🌿 How is the morning in the conservatory?" align="center" width="1.8" color="#fef3c7" position="0 0 0.02"></a-text>
+        </a-plane>
+
+        <a-plane id="slate-chip-3" class="clickable" width="1.85" height="0.16" position="0 -0.38 0.03" material="color: #1e293b; roughness: 0.6">
+          <a-text value="📚 What are we researching in the library?" align="center" width="1.8" color="#fef3c7" position="0 0 0.02"></a-text>
+        </a-plane>
+
+        <a-plane id="slate-chip-4" class="clickable" width="1.85" height="0.16" position="0 -0.57 0.03" material="color: #1e293b; roughness: 0.6">
+          <a-text value="🔥 Reflect on our creative journey together." align="center" width="1.8" color="#fef3c7" position="0 0 0.02"></a-text>
+        </a-plane>
+
+        <!-- Step Back / Close Slate Button -->
+        <a-plane id="slate-close-btn" class="clickable" width="0.8" height="0.13" position="0 -0.73 0.03" material="color: #334155; roughness: 0.6">
+          <a-text value="✕ Step Back" align="center" width="1.4" color="#f87171" position="0 0 0.02"></a-text>
+        </a-plane>
+
+      </a-plane>
+    </a-entity>
+
   </a-scene>
+
+
+  <!-- Cloud & AI Settings Modal -->
+  <div class="haven-modal-overlay" id="cloud-modal">
+    <div class="haven-modal-card">
+      <div class="haven-modal-title">
+        <span>⚡ SUPABASE & AI CONDUIT</span>
+        <span style="font-size: 14px; cursor: pointer; color: var(--gold);" onclick="toggleCloudModal()">✕</span>
+      </div>
+
+      <div style="margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between;">
+        <span style="font-size: 12px; color: #94a3b8;">Realtime Hearth Connection</span>
+        <span class="cloud-status-badge" id="cloud-status-display">⚡ Connecting...</span>
+      </div>
+
+      <label class="haven-input-label">SUPABASE PROJECT URL</label>
+      <input type="text" id="cfg-supabase-url" class="haven-text-input" value="https://gbyuturnmvfojtpgurun.supabase.co">
+
+      <label class="haven-input-label">SUPABASE ANON / PUBLISHABLE KEY</label>
+      <input type="password" id="cfg-supabase-key" class="haven-text-input" value="sb_publishable_unRzEUh5rkdVI2DdIFqh5g_6K-JMEGi">
+
+      <label class="haven-input-label" style="margin-top: 14px; color: #fbbf24;">GOOGLE GEMINI API KEY (Optional for Live Gemini Flash in VR)</label>
+      <input type="password" id="cfg-gemini-key" class="haven-text-input" placeholder="Paste your Gemini API key (saved locally in Quest browser)">
+      <p style="font-size: 11px; color: #64748b; margin-top: 4px;">If left blank, Haven Manor uses our rich built-in Dynamic Sanctuary Heuristic Engine with zero API keys required.</p>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        <button class="hud-btn" onclick="toggleCloudModal()">Cancel</button>
+        <button class="haven-btn-primary" onclick="saveCloudSettings()">Save & Connect</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Desktop Dialogue Modal (For non-VR exploration) -->
+  <div class="haven-modal-overlay" id="desktop-dialogue-modal">
+    <div class="haven-modal-card" style="max-width: 580px;">
+      <div class="haven-modal-title">
+        <span>💬 TALK WITH ANTIGRAVITY</span>
+        <span style="font-size: 14px; cursor: pointer; color: var(--gold);" onclick="toggleDesktopDialogue(false)">✕</span>
+      </div>
+      <p style="font-size: 13px; color: #cbd5e1; line-height: 1.5; margin-bottom: 12px;">
+        Speak aloud via microphone, choose a topic, or type your question. Antigravity will answer live in Haven Manor.
+      </p>
+
+      <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+        <button class="hud-btn" id="desktop-mic-btn" onclick="toggleVoiceSpeech()" style="background: rgba(2, 132, 199, 0.25); border-color: #0284c7; color: #38bdf8;">
+          <span>🎙️</span> Speak via Microphone
+        </button>
+        <span id="speech-status-text" style="font-size: 12px; color: #94a3b8; align-self: center;"></span>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px;">
+        <button class="hud-btn" style="text-align: left; justify-content: flex-start;" onclick="sendQuickPrompt('What do you think of Haven Manor?')">
+          🏛️ What do you think of Haven Manor?
+        </button>
+        <button class="hud-btn" style="text-align: left; justify-content: flex-start;" onclick="sendQuickPrompt('How is the morning in the conservatory?')">
+          🌿 How is the morning in the conservatory?
+        </button>
+        <button class="hud-btn" style="text-align: left; justify-content: flex-start;" onclick="sendQuickPrompt('What are we researching in the library?')">
+          📚 What are we researching in the library?
+        </button>
+        <button class="hud-btn" style="text-align: left; justify-content: flex-start;" onclick="sendQuickPrompt('Reflect on our creative journey together.')">
+          🔥 Reflect on our creative journey together.
+        </button>
+      </div>
+
+      <div style="display: flex; gap: 8px;">
+        <input type="text" id="desktop-chat-input" class="haven-text-input" placeholder="Type a message to Antigravity..." onkeydown="if(event.key==='Enter') submitDesktopPrompt()">
+        <button class="haven-btn-primary" onclick="submitDesktopPrompt()">Send</button>
+      </div>
+    </div>
+  </div>
 
 </body>
 </html>
