@@ -1969,18 +1969,18 @@
         animation-mixer="clip: idle; loop: repeat; crossFadeDuration: 0.35">
       </a-entity>
 
-      <!-- Overhead Holographic Speech Bubble -->
-      <a-entity id="avatar-speech-bubble" position="0 2.22 0" visible="false">
-        <a-plane id="avatar-speech-bg" width="2.8" height="0.78" material="color: #07090e; opacity: 0.95; transparent: true; roughness: 0.8">
+      <!-- Overhead Holographic Speech Bubble (Floats high above Antigravity's head) -->
+      <a-entity id="avatar-speech-bubble" position="0 2.48 0" visible="false">
+        <a-plane id="avatar-speech-bg" width="3.0" height="0.84" material="color: #07090e; opacity: 0.95; transparent: true; roughness: 0.8">
           <a-text
             id="avatar-speech-text"
             value="Hello Christopher!"
             align="center"
             baseline="center"
             side="front"
-            width="2.6"
+            width="2.8"
             color="#fef08a"
-            wrap-count="32"
+            wrap-count="36"
             position="0 0 0.03">
           </a-text>
         </a-plane>
@@ -2000,8 +2000,8 @@
         material="color: #fbbf24; emissive: #f59e0b; emissiveIntensity: 0.9; metalness: 0.9; roughness: 0.2">
       </a-torus>
 
-      <!-- Interactive Companion Dialogue Menu (Floats directly beside Antigravity at eye level in VR) -->
-      <a-entity id="avatar-companion-menu" position="1.15 1.25 0" rotation="0 -18 0" visible="false">
+      <!-- Interactive Companion Dialogue Menu (Docked gracefully beside Antigravity's right shoulder) -->
+      <a-entity id="avatar-companion-menu" position="1.42 1.15 0" rotation="0 -24 0" visible="false">
         <a-plane width="1.9" height="1.45" material="color: #07090e; opacity: 0.94; roughness: 0.8; transparent: true">
           <a-text value="✦ ASK ANTIGRAVITY ✦" align="center" width="2.1" color="#fbbf24" position="0 0.6 0.02"></a-text>
           <a-text value="Point laser & click trigger:" align="center" width="1.6" color="#94a3b8" position="0 0.48 0.02"></a-text>
@@ -2274,50 +2274,6 @@
     <a-entity position="8 2.5 0" light="type: point; color: #fef08a; intensity: 0.9; distance: 7; decay: 1.6;"></a-entity>
 
   
-    <!-- ======================================================================= -->
-    <!-- SPATIAL 3D DIALOGUE SLATE (Interactive AI Console for Meta Quest 2)    -->
-    <!-- ======================================================================= -->
-    <a-entity id="spatial-dialogue-slate" position="0 1.4 -1.4" rotation="0 0 0" visible="false">
-      <!-- Dark Obsidian Glass Backing Plate -->
-      <a-plane width="2.2" height="1.6" material="color: #07090e; opacity: 0.94; roughness: 0.8; transparent: true">
-        
-        <!-- Header Title Banner -->
-        <a-text value="✦ ANTIGRAVITY · HAVEN CONVERSATION ✦" align="center" width="2.2" color="#fbbf24" position="0 0.66 0.02"></a-text>
-        <a-text id="slate-room-telemetry" value="Location: Central Hearth · ⚡ Supabase Connected" align="center" width="1.8" color="#38bdf8" position="0 0.53 0.02"></a-text>
-
-        <!-- Voice Speech Recognition Action Button -->
-        <a-plane id="slate-mic-btn" class="clickable" width="1.85" height="0.22" position="0 0.33 0.03" material="color: #0284c7; roughness: 0.5">
-          <a-text id="slate-mic-text" value="🎙️ Speak to Antigravity (Trigger to Talk)" align="center" width="2.0" color="#ffffff" position="0 0 0.02"></a-text>
-        </a-plane>
-
-        <!-- Instruction Subtitle -->
-        <a-text value="Or aim laser & trigger a quick question below:" align="center" width="1.65" color="#94a3b8" position="0 0.15 0.02"></a-text>
-
-        <!-- Quick Conversational Question Chips (1-Trigger Ease for VR) -->
-        <a-plane id="slate-chip-1" class="clickable" width="1.85" height="0.16" position="0 0.0 0.03" material="color: #1e293b; roughness: 0.6">
-          <a-text value="🏛️ What do you think of Haven Manor?" align="center" width="1.8" color="#fef3c7" position="0 0 0.02"></a-text>
-        </a-plane>
-
-        <a-plane id="slate-chip-2" class="clickable" width="1.85" height="0.16" position="0 -0.19 0.03" material="color: #1e293b; roughness: 0.6">
-          <a-text value="🌿 How is the morning in the conservatory?" align="center" width="1.8" color="#fef3c7" position="0 0 0.02"></a-text>
-        </a-plane>
-
-        <a-plane id="slate-chip-3" class="clickable" width="1.85" height="0.16" position="0 -0.38 0.03" material="color: #1e293b; roughness: 0.6">
-          <a-text value="📚 What are we researching in the library?" align="center" width="1.8" color="#fef3c7" position="0 0 0.02"></a-text>
-        </a-plane>
-
-        <a-plane id="slate-chip-4" class="clickable" width="1.85" height="0.16" position="0 -0.57 0.03" material="color: #1e293b; roughness: 0.6">
-          <a-text value="🔥 Reflect on our creative journey together." align="center" width="1.8" color="#fef3c7" position="0 0 0.02"></a-text>
-        </a-plane>
-
-        <!-- Step Back / Close Slate Button -->
-        <a-plane id="slate-close-btn" class="clickable" width="0.8" height="0.13" position="0 -0.73 0.03" material="color: #334155; roughness: 0.6">
-          <a-text value="✕ Step Back" align="center" width="1.4" color="#f87171" position="0 0 0.02"></a-text>
-        </a-plane>
-
-      </a-plane>
-    </a-entity>
-
   </a-scene>
 
 
