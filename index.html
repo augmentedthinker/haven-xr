@@ -2494,6 +2494,8 @@
       <img id="tex-terrace-balustrade" src="./textures/terrace_balustrade.png">
       <img id="tex-dawn-vista" src="./textures/panoramic_dawn_vista.jpg">
       <img id="tex-window" src="./textures/window_dawn.jpg">
+      <img id="tex-planter-pot" src="./textures/planter_pot.jpg">
+      <img id="tex-foliage" src="./textures/foliage_leaves.jpg">
       <img id="tex-avatar-coat" src="./textures/avatar_coat.jpg?v=30">
       <a-asset-item id="avatar-model" src="./models/xbot.glb?v=30"></a-asset-item>
     </a-assets>
@@ -2630,11 +2632,11 @@
     <!-- North Wall: Solid Plaster Wall with Fieldstone Fireplace & Hearth Cutout -->
     <a-plane position="0 1.8 -3.98" rotation="0 0 0" width="8" height="3.6" material="src: #tex-plaster; repeat: 3 2; roughness: 0.85; side: double"></a-plane>
 
-    <!-- Fieldstone Hearth & Roaring Fire Cutout (Isolated Decal) -->
+    <!-- Fieldstone Hearth & Roaring Fire Cutout (Embedded into Floor Base) -->
     <a-plane
       class="clickable"
       interactive-prop="title: Roaring Fieldstone Hearth; hint: Reclaimed timber mantel and glowing cedar logs with hand-laid stone chimney.; sound: wood"
-      position="0 1.8 -3.92"
+      position="0 1.78 -3.92"
       width="3.6"
       height="3.6"
       material="src: #tex-fireplace-hearth; transparent: true; alphaTest: 0.1; roughness: 0.8; side: double">
@@ -2650,21 +2652,31 @@
     <!-- South Wall: Solid Plaster Wall with Heavy Carved Oak Manor Exterior Door Cutout -->
     <a-plane position="0 1.8 3.98" rotation="0 180 0" width="8" height="3.6" material="src: #tex-plaster; repeat: 3 2; roughness: 0.85; side: double"></a-plane>
 
-    <!-- Heavy Carved Oak Manor Exterior Door Cutout (Isolated Decal) -->
+    <!-- Heavy Carved Oak Manor Exterior Door Cutout (Embedded into Floor Base) -->
     <a-plane
       class="clickable"
       interactive-prop="title: Exterior Manor Threshold; hint: Heavy carved oak door with wrought-iron strap hinges and lion head knocker.; sound: door"
-      position="0 1.7 3.92"
+      position="0 1.68 3.92"
       rotation="0 180 0"
       width="3.2"
       height="3.4"
       material="src: #tex-door-cutout; transparent: true; alphaTest: 0.1; roughness: 0.7; side: double">
     </a-plane>
 
-    <!-- Lantern above Exterior Door -->
-    <a-entity position="0 2.9 3.65">
-      <a-sphere radius="0.08" material="color: #fbbf24; emissive: #f59e0b; emissiveIntensity: 1.2"></a-sphere>
-      <a-entity light="type: point; color: #fde047; intensity: 0.8; distance: 4.5; decay: 2;"></a-entity>
+    <!-- Antique Wrought-Iron Carriage Lantern Mounted Flush Above Exterior Door -->
+    <a-entity position="0 3.05 3.92" rotation="0 180 0">
+      <!-- Wall Mounting Plate -->
+      <a-box position="0 0 0.02" width="0.16" height="0.32" depth="0.04" material="color: #1e293b; roughness: 0.8"></a-box>
+      <!-- Curved Iron Bracket Arm -->
+      <a-box position="0 0.08 -0.1" width="0.04" height="0.04" depth="0.22" material="color: #0f172a; roughness: 0.7"></a-box>
+      <!-- Lantern Cage Cap & Base -->
+      <a-cone position="0 0.08 -0.22" radius-bottom="0.11" radius-top="0.02" height="0.08" material="color: #0f172a; roughness: 0.7"></a-cone>
+      <a-box position="0 -0.16 -0.22" width="0.14" height="0.04" depth="0.14" material="color: #0f172a; roughness: 0.7"></a-box>
+      <!-- Frosted Glass Lantern Body with Warm Glowing Candle Inside -->
+      <a-box position="0 -0.06 -0.22" width="0.16" height="0.2" depth="0.16" material="color: #fef3c7; opacity: 0.75; transparent: true; roughness: 0.3"></a-box>
+      <a-sphere position="0 -0.06 -0.22" radius="0.035" material="color: #fbbf24; emissive: #f59e0b; emissiveIntensity: 1.5"></a-sphere>
+      <!-- Soft Warm Downward Entry Illumination -->
+      <a-entity position="0 -0.12 -0.22" light="type: point; color: #fde047; intensity: 0.85; distance: 5.0; decay: 2;"></a-entity>
     </a-entity>
 
     <!-- Ornate Persian Area Rug in Central Foyer (Isolated Alpha Cutout over Oak Parquet) -->
@@ -2805,25 +2817,29 @@
       material="src: #tex-conservatory-window-wall; transparent: true; alphaTest: 0.15; roughness: 0.7; side: double">
     </a-plane>
 
-    <!-- East Parallax Layer 2: Stone Terrace Balustrade & Climbing Roses (X = 15.0m) -->
+    <!-- Expansive 360 Horizon Panoramic Sky Dome (Eliminates all black void at any angle) -->
+    <a-sky src="#tex-dawn-vista" rotation="0 -90 0"></a-sky>
+
+    <!-- Exterior Stone Terrace Foundation (Visible looking down through conservatory windows) -->
+    <a-plane position="18 -0.04 0" rotation="-90 0 0" width="14" height="24" material="src: #tex-terracotta; repeat: 8 14; roughness: 0.85; metalness: 0.05"></a-plane>
+    <a-plane position="8 -0.04 -10" rotation="-90 0 0" width="16" height="12" material="src: #tex-terracotta; repeat: 8 6; roughness: 0.85; metalness: 0.05"></a-plane>
+
+    <!-- Surrounding Estate Green Grounds -->
+    <a-plane position="0 -0.08 0" rotation="-90 0 0" width="220" height="220" material="color: #1e3a1e; roughness: 0.95"></a-plane>
+
+    <!-- East Outer Wall: Solid Plaster Wall with Central Cutout Window Gallery -->
+    <!-- (The distant alpine mountain vista is now provided 360-degrees by the panoramic sky dome) -->
     <a-plane
-      position="15.0 1.25 0"
+      class="clickable"
+      interactive-prop="title: Sunrise Conservatory Gallery; hint: Arched wrought-iron conservatory window overlooking the terrace and alpine sunrise.; sound: wood"
+      position="11.95 1.8 0"
       rotation="0 -90 0"
-      width="7.0"
-      height="3.9"
-      material="src: #tex-terrace-balustrade; transparent: true; alphaTest: 0.15; roughness: 0.85; side: double">
+      width="8"
+      height="3.6"
+      material="src: #tex-conservatory-window-wall; transparent: true; alphaTest: 0.15; roughness: 0.7; side: double">
     </a-plane>
 
-    <!-- East Parallax Layer 3: Panoramic Alpine Dawn Sunrise Vista (X = 28.0m) -->
-    <a-plane
-      position="28.0 4.0 0"
-      rotation="0 -90 0"
-      width="32"
-      height="18"
-      material="src: #tex-dawn-vista; shader: flat; side: double">
-    </a-plane>
-
-    <!-- North Sunroom Wall: Matching Conservatory Window Wall (Facing Garden Terrace Vista) -->
+    <!-- North Sunroom Wall: Matching Conservatory Window Wall (Facing North Garden Terrace) -->
     <a-plane
       class="clickable"
       interactive-prop="title: North Garden Conservatory Window; hint: Morning light spilling across the terracotta tiles through arched wrought-iron panes.; sound: wood"
@@ -2834,33 +2850,47 @@
       material="src: #tex-conservatory-window-wall; transparent: true; alphaTest: 0.15; roughness: 0.7; side: double">
     </a-plane>
 
-    <!-- North Parallax Layer 2: Stone Garden Balustrade (Z = -7.5m) -->
-    <a-plane
-      position="8 1.25 -7.5"
-      rotation="0 0 0"
-      width="7.0"
-      height="3.9"
-      material="src: #tex-terrace-balustrade; transparent: true; alphaTest: 0.15; roughness: 0.85; side: double">
-    </a-plane>
-
-    <!-- North Parallax Layer 3: Panoramic Mountain Dawn Vista (Z = -22.0m) -->
-    <a-plane
-      position="8 4.0 -22.0"
-      rotation="0 0 0"
-      width="32"
-      height="18"
-      material="src: #tex-dawn-vista; shader: flat; side: double">
-    </a-plane>
-
     <!-- South Sunroom Wall: Plaster with Conservatory Planters -->
     <a-plane position="8 1.8 3.98" rotation="0 180 0" width="8" height="3.6" material="src: #tex-plaster; repeat: 3 2; roughness: 0.85"></a-plane>
 
-    <!-- Decorative Indoor Terracotta Planters & Greenery -->
-    <a-cylinder position="6.2 0.35 -2.8" radius="0.32" height="0.7" material="color: #9a3412; roughness: 0.7"></a-cylinder>
-    <a-sphere position="6.2 0.85 -2.8" radius="0.45" material="color: #15803d; roughness: 0.85"></a-sphere>
+    <!-- Decorative Indoor Terracotta Topiary Planters (Realistic Weathered Clay & Citrus Foliage) -->
+    <a-entity id="planter-north-1" position="6.2 0 -2.8">
+      <!-- Weathered Tuscan Terracotta Pot -->
+      <a-cylinder position="0 0.32 0" radius="0.32" height="0.64" material="src: #tex-planter-pot; repeat: 2 1; roughness: 0.8; metalness: 0.05"></a-cylinder>
+      <!-- Terracotta Moulded Rim -->
+      <a-torus position="0 0.63 0" rotation="90 0 0" radius="0.32" radius-tubular="0.035" material="src: #tex-planter-pot; roughness: 0.8"></a-torus>
+      <!-- Dark Potting Soil -->
+      <a-circle position="0 0.62 0" rotation="-90 0 0" radius="0.30" material="color: #261810; roughness: 0.95"></a-circle>
+      <!-- Slender Wood Trunk -->
+      <a-cylinder position="0 0.82 0" radius="0.04" height="0.4" material="color: #3b2316; roughness: 0.8"></a-cylinder>
+      <!-- Lush Citrus Foliage Topiary Crown -->
+      <a-sphere position="0 1.15 0" radius="0.46" material="src: #tex-foliage; repeat: 2 2; roughness: 0.75; metalness: 0.05"></a-sphere>
+      <a-sphere position="0.08 1.25 -0.05" radius="0.32" material="src: #tex-foliage; repeat: 2 2; roughness: 0.75"></a-sphere>
+      <a-sphere position="-0.08 1.22 0.06" radius="0.34" material="src: #tex-foliage; repeat: 2 2; roughness: 0.75"></a-sphere>
+      <!-- Ripe Golden Citrus Fruits -->
+      <a-sphere position="0.25 1.1 -0.2" radius="0.04" material="color: #f59e0b; roughness: 0.4"></a-sphere>
+      <a-sphere position="-0.22 1.05 0.22" radius="0.04" material="color: #f59e0b; roughness: 0.4"></a-sphere>
+      <a-sphere position="0.1 1.25 0.28" radius="0.042" material="color: #fbbf24; roughness: 0.4"></a-sphere>
+    </a-entity>
 
-    <a-cylinder position="9.8 0.35 -2.8" radius="0.32" height="0.7" material="color: #9a3412; roughness: 0.7"></a-cylinder>
-    <a-sphere position="9.8 0.85 -2.8" radius="0.45" material="color: #166534; roughness: 0.85"></a-sphere>
+    <a-entity id="planter-north-2" position="9.8 0 -2.8">
+      <!-- Weathered Tuscan Terracotta Pot -->
+      <a-cylinder position="0 0.32 0" radius="0.32" height="0.64" material="src: #tex-planter-pot; repeat: 2 1; roughness: 0.8; metalness: 0.05"></a-cylinder>
+      <!-- Terracotta Moulded Rim -->
+      <a-torus position="0 0.63 0" rotation="90 0 0" radius="0.32" radius-tubular="0.035" material="src: #tex-planter-pot; roughness: 0.8"></a-torus>
+      <!-- Dark Potting Soil -->
+      <a-circle position="0 0.62 0" rotation="-90 0 0" radius="0.30" material="color: #261810; roughness: 0.95"></a-circle>
+      <!-- Slender Wood Trunk -->
+      <a-cylinder position="0 0.82 0" radius="0.04" height="0.4" material="color: #3b2316; roughness: 0.8"></a-cylinder>
+      <!-- Lush Citrus Foliage Topiary Crown -->
+      <a-sphere position="0 1.15 0" radius="0.46" material="src: #tex-foliage; repeat: 2 2; roughness: 0.75; metalness: 0.05"></a-sphere>
+      <a-sphere position="-0.08 1.25 -0.05" radius="0.32" material="src: #tex-foliage; repeat: 2 2; roughness: 0.75"></a-sphere>
+      <a-sphere position="0.08 1.22 0.06" radius="0.34" material="src: #tex-foliage; repeat: 2 2; roughness: 0.75"></a-sphere>
+      <!-- Ripe Golden Citrus Fruits -->
+      <a-sphere position="-0.25 1.1 -0.2" radius="0.04" material="color: #f59e0b; roughness: 0.4"></a-sphere>
+      <a-sphere position="0.22 1.05 0.22" radius="0.04" material="color: #f59e0b; roughness: 0.4"></a-sphere>
+      <a-sphere position="-0.1 1.25 0.28" radius="0.042" material="color: #fbbf24; roughness: 0.4"></a-sphere>
+    </a-entity>
 
     <!-- Soft Morning Light Spill inside Sunroom -->
     <a-entity position="8 2.5 0" light="type: point; color: #fef08a; intensity: 0.9; distance: 7; decay: 1.6;"></a-entity>
