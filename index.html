@@ -2634,6 +2634,8 @@
       <a-asset-item id="avatar-model" src="./models/xbot.glb?v=30"></a-asset-item>
       <a-asset-item id="tesla-model" src="./models/tesla_optimus_pbr.glb?v=3"></a-asset-item>
       <a-asset-item id="pbr-armchair-model" src="./models/pbr_armchair.glb?v=1"></a-asset-item>
+      <a-asset-item id="plant-pbr-1" src="./models/conservatory_plant_1.glb?v=2"></a-asset-item>
+      <a-asset-item id="plant-pbr-2" src="./models/conservatory_plant_2.glb?v=2"></a-asset-item>
     </a-assets>
 
     <!-- Global Lighting Matrix -->
@@ -2742,7 +2744,7 @@
     <!-- ======================================================================= -->
     <!-- TESLA OPTIMUS GEN 2 EXHIBITION STATUE (FORGED IN BLENDER 4.3.2)         -->
     <!-- ======================================================================= -->
-    <a-entity id="tesla-optimus-statue" position="2.3 0 -0.8" rotation="0 145 0">
+    <a-entity id="tesla-optimus-statue" position="2.3 0 -0.8" rotation="0 -45 0">
       <!-- Exhibition Pedestal Plinth -->
       <a-cylinder position="0 0.02 0" radius="0.55" height="0.04" material="color: #0f172a; roughness: 0.6; metalness: 0.4"></a-cylinder>
       <a-torus position="0 0.04 0" radius="0.55" radius-tubular="0.006" rotation="90 0 0" material="color: #38bdf8; emissive: #0ea5e9; emissiveIntensity: 2.2"></a-torus>
@@ -3020,43 +3022,15 @@
     <!-- South Sunroom Wall: Plaster with Conservatory Planters -->
     <a-plane position="8 1.8 3.98" rotation="0 180 0" width="8" height="3.6" material="src: #tex-plaster; repeat: 3 2; roughness: 0.85"></a-plane>
 
-    <!-- Decorative Indoor Terracotta Topiary Planters (Realistic Weathered Clay & Citrus Foliage) -->
-    <a-entity id="planter-north-1" position="6.2 0 -2.8">
-      <!-- Weathered Tuscan Terracotta Pot -->
-      <a-cylinder position="0 0.32 0" radius="0.32" height="0.64" material="src: #tex-planter-pot; repeat: 2 1; roughness: 0.8; metalness: 0.05"></a-cylinder>
-      <!-- Terracotta Moulded Rim -->
-      <a-torus position="0 0.63 0" rotation="90 0 0" radius="0.32" radius-tubular="0.035" material="src: #tex-planter-pot; roughness: 0.8"></a-torus>
-      <!-- Dark Potting Soil -->
-      <a-circle position="0 0.62 0" rotation="-90 0 0" radius="0.30" material="color: #261810; roughness: 0.95"></a-circle>
-      <!-- Slender Wood Trunk -->
-      <a-cylinder position="0 0.82 0" radius="0.04" height="0.4" material="color: #3b2316; roughness: 0.8"></a-cylinder>
-      <!-- Lush Citrus Foliage Topiary Crown -->
-      <a-sphere position="0 1.15 0" radius="0.46" material="src: #tex-foliage; repeat: 2 2; roughness: 0.75; metalness: 0.05"></a-sphere>
-      <a-sphere position="0.08 1.25 -0.05" radius="0.32" material="src: #tex-foliage; repeat: 2 2; roughness: 0.75"></a-sphere>
-      <a-sphere position="-0.08 1.22 0.06" radius="0.34" material="src: #tex-foliage; repeat: 2 2; roughness: 0.75"></a-sphere>
-      <!-- Ripe Golden Citrus Fruits -->
-      <a-sphere position="0.25 1.1 -0.2" radius="0.04" material="color: #f59e0b; roughness: 0.4"></a-sphere>
-      <a-sphere position="-0.22 1.05 0.22" radius="0.04" material="color: #f59e0b; roughness: 0.4"></a-sphere>
-      <a-sphere position="0.1 1.25 0.28" radius="0.042" material="color: #fbbf24; roughness: 0.4"></a-sphere>
+    <!-- ======================================================================= -->
+    <!-- BLENDER 4.3.2 VOLUMETRIC BOTANICAL PLANTERS (TUSCAN TERRACOTTA & PBR)   -->
+    <!-- ======================================================================= -->
+    <a-entity id="planter-north-1" position="6.2 0 -2.8" rotation="0 25 0">
+      <a-entity gltf-model="#plant-pbr-1" scale="1.1 1.1 1.1"></a-entity>
     </a-entity>
 
-    <a-entity id="planter-north-2" position="9.8 0 -2.8">
-      <!-- Weathered Tuscan Terracotta Pot -->
-      <a-cylinder position="0 0.32 0" radius="0.32" height="0.64" material="src: #tex-planter-pot; repeat: 2 1; roughness: 0.8; metalness: 0.05"></a-cylinder>
-      <!-- Terracotta Moulded Rim -->
-      <a-torus position="0 0.63 0" rotation="90 0 0" radius="0.32" radius-tubular="0.035" material="src: #tex-planter-pot; roughness: 0.8"></a-torus>
-      <!-- Dark Potting Soil -->
-      <a-circle position="0 0.62 0" rotation="-90 0 0" radius="0.30" material="color: #261810; roughness: 0.95"></a-circle>
-      <!-- Slender Wood Trunk -->
-      <a-cylinder position="0 0.82 0" radius="0.04" height="0.4" material="color: #3b2316; roughness: 0.8"></a-cylinder>
-      <!-- Lush Citrus Foliage Topiary Crown -->
-      <a-sphere position="0 1.15 0" radius="0.46" material="src: #tex-foliage; repeat: 2 2; roughness: 0.75; metalness: 0.05"></a-sphere>
-      <a-sphere position="-0.08 1.25 -0.05" radius="0.32" material="src: #tex-foliage; repeat: 2 2; roughness: 0.75"></a-sphere>
-      <a-sphere position="0.08 1.22 0.06" radius="0.34" material="src: #tex-foliage; repeat: 2 2; roughness: 0.75"></a-sphere>
-      <!-- Ripe Golden Citrus Fruits -->
-      <a-sphere position="-0.25 1.1 -0.2" radius="0.04" material="color: #f59e0b; roughness: 0.4"></a-sphere>
-      <a-sphere position="0.22 1.05 0.22" radius="0.04" material="color: #f59e0b; roughness: 0.4"></a-sphere>
-      <a-sphere position="-0.1 1.25 0.28" radius="0.042" material="color: #fbbf24; roughness: 0.4"></a-sphere>
+    <a-entity id="planter-north-2" position="9.8 0 -2.8" rotation="0 -30 0">
+      <a-entity gltf-model="#plant-pbr-2" scale="1.05 1.05 1.05"></a-entity>
     </a-entity>
 
     <!-- Soft Morning Light Spill inside Sunroom -->
