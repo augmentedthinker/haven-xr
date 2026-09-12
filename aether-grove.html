@@ -115,6 +115,47 @@
       letter-spacing: 0;
     }
 
+    /* Version Switcher Bar */
+    .version-switch-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(4, 7, 14, 0.85);
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid rgba(0, 245, 212, 0.25);
+    }
+
+    .version-label {
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-right: 4px;
+    }
+
+    .ver-pill {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #cbd5e1;
+      text-decoration: none;
+      padding: 3px 10px;
+      border-radius: 14px;
+      transition: all 0.2s ease;
+    }
+
+    .ver-pill:hover {
+      color: var(--cyan);
+      background: rgba(0, 245, 212, 0.12);
+    }
+
+    .ver-pill.active {
+      color: #05070e;
+      background: var(--cyan);
+      box-shadow: 0 0 10px rgba(0, 245, 212, 0.5);
+    }
+
     /* On-Screen HUD Instructions & Status */
     .hud-controls-panel {
       position: absolute;
@@ -261,7 +302,7 @@
 
   <script>
     // -------------------------------------------------------------
-    // Procedural Audio Synthesizer (Nocturnal Forest & Chimes)
+    // Procedural Audio Synthesizer (Nocturnal Forest, Chimes & Footsteps)
     // -------------------------------------------------------------
     class ForestAudioEngine {
       constructor() {
@@ -418,12 +459,81 @@
     const audioEngine = new ForestAudioEngine();
 
     // -------------------------------------------------------------
-    // Trail Path Spline Helper (Corresponds to Blender generation)
+    // Trail Path Spline Helper & Wide Corridor Geometry (Version 3)
     // -------------------------------------------------------------
     function getTrailCenter(z) {
-      // Trail spans from z = +18 (trailhead) to z = -14 (cottage front)
-      const t = Math.max(0, Math.min(1.0, (18.0 - z) / 32.0));
+      // Trail spans from z = +18 (trailhead) to z = -13 (cottage porch)
+      const t = Math.max(0, Math.min(1.0, (18.0 - z) / 31.0));
       return -2.6 * Math.sin(t * Math.PI * 1.6) * (1.0 - t * 0.3);
+    }
+
+    // WIDER TRAIL BED: Half-width 2.30m (4.6m comfortable corridor)
+    function getMaxAllowedDev(z) {
+      if (z > 14.0) return 2.20;
+      if (z > -6.0) return 2.35; // Wide trail corridor
+      if (z > -8.5) {
+        // Broadening out into the cottage clearing
+        const t = (-6.0 - z) / 2.5;
+        return 2.35 + t * 2.05; // Flares smoothly to 4.4m
+      }
+      return 4.4; // Clearing open radius
+    }
+
+    // List of Tree Trunk Colliders on outer berms (x, z, radius)
+    const TREE_OBSTACLES = [
+      // Left Bank
+      { x: -3.6, z:  17.0, r: 1.15 },
+      { x: -4.2, z:  13.5, r: 1.20 },
+      { x: -4.8, z:   9.5, r: 1.35 },
+      { x: -4.0, z:   5.5, r: 1.10 },
+      { x: -4.2, z:   0.5, r: 1.25 },
+      { x: -4.4, z:  -4.5, r: 1.30 },
+      { x: -3.8, z:  -9.0, r: 1.18 },
+
+      // Right Bank
+      { x:  3.6, z:  16.0, r: 1.10 },
+      { x:  3.2, z:  12.0, r: 1.22 },
+      { x:  2.6, z:   7.5, r: 1.28 }, // Occlusion tree
+      { x:  4.5, z:   3.0, r: 1.18 },
+      { x:  4.8, z:  -2.0, r: 1.32 },
+      { x:  4.0, z:  -7.0, r: 1.18 },
+      { x:  4.2, z: -11.0, r: 1.14 }
+    ];
+
+    // Master Position Clamper for Trail Bounds & Tree Colliders
+    function enforceTrailBounds(x, z) {
+      let targetX = x;
+      let targetZ = z;
+
+      // 1. Z Limits: Spawn at +18.5, cottage porch threshold at -13.0
+      targetZ = Math.max(-13.0, Math.min(18.5, targetZ));
+
+      // 2. Lateral Trail Corridor Clamping
+      const trailCenter = getTrailCenter(targetZ);
+      const maxDev = getMaxAllowedDev(targetZ);
+      if (Math.abs(targetX - trailCenter) > maxDev) {
+        targetX = trailCenter + Math.sign(targetX - trailCenter) * maxDev;
+      }
+
+      // 3. Porch facade clamping (cannot walk past house sides)
+      if (targetZ < -12.4) {
+        targetX = Math.max(-2.2, Math.min(2.2, targetX));
+      }
+
+      // 4. Radial Tree Trunk Collision Pushout
+      for (let i = 0; i < TREE_OBSTACLES.length; i++) {
+        const obs = TREE_OBSTACLES[i];
+        const dx = targetX - obs.x;
+        const dz = targetZ - obs.z;
+        const d = Math.hypot(dx, dz);
+        if (d < obs.r) {
+          const factor = obs.r / (d || 0.001);
+          targetX = obs.x + dx * factor;
+          targetZ = obs.z + dz * factor;
+        }
+      }
+
+      return { x: targetX, z: targetZ };
     }
 
     // -------------------------------------------------------------
@@ -461,7 +571,7 @@
         const dt = delta / 1000.0;
         const currentPos = this.rigEl.object3D.position;
 
-        // Play subtle footsteps when walking
+        // Footstep sound synthesis
         this.stepTimer += dt;
         if (this.stepTimer > 0.52) {
           this.stepTimer = 0;
@@ -470,38 +580,48 @@
           }
         }
 
-        // Get camera yaw
+        // Camera relative movement
         const camRot = this.cameraEl.getAttribute('rotation');
         const yaw = THREE.MathUtils.degToRad(camRot.y);
 
-        // Forward vector
         const fwdX = -Math.sin(yaw);
         const fwdZ = -Math.cos(yaw);
-
-        // Strafe vector
         const rightX = Math.cos(yaw);
         const rightZ = -Math.sin(yaw);
 
-        // Movement delta: stick forward is negative axisY
         const moveDist = this.data.speed * dt;
         let dx = (fwdX * -this.axisY + rightX * this.axisX) * moveDist;
         let dz = (fwdZ * -this.axisY + rightZ * this.axisX) * moveDist;
 
-        let targetX = currentPos.x + dx;
-        let targetZ = currentPos.z + dz;
+        // Apply strict boundary & tree collision containment
+        const bounded = enforceTrailBounds(currentPos.x + dx, currentPos.z + dz);
+        currentPos.x = bounded.x;
+        currentPos.z = bounded.z;
+      }
+    });
 
-        // Bound to Trail Corridor: Clamp lateral deviation from trail centerline
-        const trailCenter = getTrailCenter(targetZ);
-        const maxDev = (targetZ < -8) ? 3.8 : 2.2; // wider in cottage clearing
-        if (Math.abs(targetX - trailCenter) > maxDev) {
-          targetX = trailCenter + Math.sign(targetX - trailCenter) * maxDev;
+    // -------------------------------------------------------------
+    // Custom Component: Rig Boundary & Tree Barrier (Room-scale & WASD)
+    // -------------------------------------------------------------
+    AFRAME.registerComponent('trail-boundary-barrier', {
+      init: function() {
+        this.cameraEl = document.querySelector('#head-camera');
+        this.rigEl = document.querySelector('#player-rig');
+        this.worldPos = new THREE.Vector3();
+      },
+      tick: function() {
+        if (!this.cameraEl || !this.rigEl) return;
+        this.cameraEl.object3D.getWorldPosition(this.worldPos);
+
+        const bounded = enforceTrailBounds(this.worldPos.x, this.worldPos.z);
+        const diffX = bounded.x - this.worldPos.x;
+        const diffZ = bounded.z - this.worldPos.z;
+
+        // Reposition rig if player walked past boundary in physical room or WASD
+        if (Math.abs(diffX) > 0.001 || Math.abs(diffZ) > 0.001) {
+          this.rigEl.object3D.position.x += diffX;
+          this.rigEl.object3D.position.z += diffZ;
         }
-
-        // Clamp Z to trail limits (+19 at spawn down to -12.5 in front of door)
-        targetZ = Math.max(-12.5, Math.min(19.0, targetZ));
-
-        currentPos.x = targetX;
-        currentPos.z = targetZ;
       }
     });
 
@@ -511,7 +631,7 @@
     AFRAME.registerComponent('bioluminescent-pulse', {
       schema: {
         min: { type: 'number', default: 1.8 },
-        max: { type: 'number', default: 3.2 },
+        max: { type: 'number', default: 3.4 },
         speed: { type: 'number', default: 1.3 },
         offset: { type: 'number', default: 0 }
       },
@@ -547,9 +667,7 @@
 
       tick: function(time, delta) {
         if (!this.rigEl || this.turnAxis === 0) return;
-
         const dt = delta / 1000.0;
-        // Smooth continuous rotation: right deflection turns clockwise (negative yaw)
         const dYaw = -this.turnAxis * this.data.turnSpeed * dt;
         this.rigEl.object3D.rotation.y += THREE.MathUtils.degToRad(dYaw);
       }
@@ -568,12 +686,10 @@
 
         this.onTrigger = this.onTrigger.bind(this);
 
-        // Click / Trigger handlers on the door target
         if (this.doorTarget) {
           this.doorTarget.addEventListener('click', this.onTrigger);
         }
 
-        // Controller trigger buttons
         const leftCtrl = document.querySelector('#leftHand');
         const rightCtrl = document.querySelector('#rightHand');
         if (leftCtrl) leftCtrl.addEventListener('triggerdown', this.checkProximityTrigger.bind(this));
@@ -583,7 +699,6 @@
       checkProximityTrigger: function() {
         if (!this.rigEl) return;
         const pos = this.rigEl.object3D.position;
-        // Door is at Z = -13.0, X = 0.0
         const dist = Math.hypot(pos.x, pos.z - (-13.0));
         if (dist < 3.8) {
           this.onTrigger();
@@ -593,13 +708,11 @@
       onTrigger: function() {
         audioEngine.playDoorLatchSound();
 
-        // 1. Toggle In-World VR Slate
         if (this.inWorldSlate) {
           const isVisible = this.inWorldSlate.getAttribute('visible');
           this.inWorldSlate.setAttribute('visible', !isVisible);
         }
 
-        // 2. Toggle Desktop / 2D Modal
         if (this.modal) {
           this.modal.classList.toggle('active');
         }
@@ -607,30 +720,50 @@
     });
 
     // -------------------------------------------------------------
-    // Custom A-Frame Component: Floating Spore Drift Particles
+    // Custom Component: Textured Floating Spore Particle Orbs
     // -------------------------------------------------------------
     AFRAME.registerComponent('spore-drift', {
-      schema: { count: { type: 'number', default: 35 } },
+      schema: { count: { type: 'number', default: 42 } },
       init: function() {
         this.spores = [];
-        const geom = new THREE.SphereGeometry(0.035, 6, 6);
-        const matCyan = new THREE.MeshBasicMaterial({ color: 0x00f5d4, transparent: true, opacity: 0.8 });
-        const matAmber = new THREE.MeshBasicMaterial({ color: 0xffb703, transparent: true, opacity: 0.75 });
+        const loader = new THREE.TextureLoader();
+        const tex = loader.load('./assets/aether_grove/spore_orb_rgba.png');
+        
+        const spriteMatCyan = new THREE.SpriteMaterial({
+          map: tex,
+          color: 0x00f5d4,
+          transparent: true,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false
+        });
+
+        const spriteMatAmber = new THREE.SpriteMaterial({
+          map: tex,
+          color: 0xffb703,
+          transparent: true,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false
+        });
 
         for (let i = 0; i < this.data.count; i++) {
-          const z = 18.0 - (i / this.data.count) * 32.0;
+          const z = 18.0 - (i / this.data.count) * 31.0;
           const trailX = getTrailCenter(z);
-          const x = trailX + (Math.random() - 0.5) * 3.4;
-          const y = 0.4 + Math.random() * 2.2;
+          const x = trailX + (Math.random() - 0.5) * 4.2;
+          const y = 0.45 + Math.random() * 2.3;
 
-          const mesh = new THREE.Mesh(geom, (i % 2 === 0) ? matCyan : matAmber);
-          mesh.position.set(x, y, z);
-          this.el.object3D.add(mesh);
+          const mat = (i % 3 === 0) ? spriteMatAmber : spriteMatCyan;
+          const sprite = new THREE.Sprite(mat.clone());
+          const sz = 0.12 + Math.random() * 0.14;
+          sprite.scale.set(sz, sz, 1.0);
+          sprite.position.set(x, y, z);
+          this.el.object3D.add(sprite);
 
           this.spores.push({
-            mesh: mesh,
+            sprite: sprite,
             baseY: y,
-            speed: 0.8 + Math.random() * 1.2,
+            baseScale: sz,
+            speed: 0.7 + Math.random() * 1.3,
+            pulseSpeed: 1.2 + Math.random() * 1.5,
             phase: Math.random() * Math.PI * 2.0
           });
         }
@@ -640,7 +773,9 @@
         const sec = time / 1000.0;
         for (let i = 0; i < this.spores.length; i++) {
           const s = this.spores[i];
-          s.mesh.position.y = s.baseY + Math.sin(sec * s.speed + s.phase) * 0.18;
+          s.sprite.position.y = s.baseY + Math.sin(sec * s.speed + s.phase) * 0.20;
+          const scaleMod = 1.0 + 0.25 * Math.sin(sec * s.pulseSpeed + s.phase);
+          s.sprite.scale.set(s.baseScale * scaleMod, s.baseScale * scaleMod, 1.0);
         }
       }
     });
@@ -651,10 +786,16 @@
   <!-- Top Navigation Header -->
   <header class="top-header">
     <div class="header-left">
-      <a href="/" class="btn-back">← Horizon Sanctuary</a>
+      <a href="https://augmentedthinker.github.io/haven-xr/" class="btn-back">← Horizon Sanctuary</a>
       <div class="header-title">
-        Aether-Grove Trail <span>Artifact 33 • Spatial WebXR</span>
+        Aether-Grove Trail <span>Artifact 33 • V3 Master</span>
       </div>
+    </div>
+    <div class="version-switch-bar">
+      <span class="version-label">Walkthrough:</span>
+      <a href="./aether-grove-v1.html" class="ver-pill">V1 • Prototype</a>
+      <a href="./aether-grove-v2.html" class="ver-pill">V2 • Realism</a>
+      <a href="./aether-grove.html" class="ver-pill active">✦ V3 • Master</a>
     </div>
   </header>
 
@@ -663,13 +804,13 @@
 
   <!-- HUD Controls Panel -->
   <div class="hud-controls-panel">
-    <strong>✦ The Path to the Sanctuary</strong>
-    Walk down the dark winding trail guided by the glowing mushrooms. As you progress, the path reveals our future cottage sanctuary at the clearing.
+    <strong>✦ The Path to the Sanctuary (V3 Master)</strong>
+    Walk down the spacious 4.6m enchanted trail bordered by ancient trees, mossy boulders, and glowing fairytale parasol mushrooms. Colliders keep you safely on the path to our cottage clearing.
     <div class="quest-note">
       🎮 <strong>Quest 2 Controls:</strong><br>
-      • <strong>Left Stick</strong>: Smooth Locomotion (Walk/Strafe)<br>
+      • <strong>Left Stick</strong>: Smooth Walk & Strafe (Corridor Clamped)<br>
       • <strong>Right Stick</strong>: Smooth Continuous Turn (No snap jumps)<br>
-      • <strong>Trigger / Point</strong>: Walk up to the door and interact!
+      • <strong>Trigger / Point</strong>: Walk up to the porch door and interact!
     </div>
   </div>
 
@@ -683,7 +824,7 @@
     <div class="door-modal-title">✦ Sanctuary Threshold ✦</div>
     <div class="door-modal-quote">"This is where our home will be."</div>
     <div class="door-modal-desc">
-      You have walked the dark winding trail and arrived at the clearing threshold. Inside this quaint stone-and-timber cottage, our hearth, collaborative thinking sanctuary, and living presence are currently being forged.
+      You have walked the wide enchanted woodland trail and arrived at our cottage threshold. Inside this quaint stone-and-timber sanctuary, our hearth, collaborative thinking chamber, and living presence are being forged.
     </div>
     <button class="btn-door-close" onclick="document.querySelector('#doorModal').classList.remove('active');">
       Step Back onto the Trail
@@ -693,15 +834,16 @@
   <!-- A-Frame WebXR Scene -->
   <a-scene
     renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true; exposure: 0.95"
-    fog="type: exponential; color: #040712; density: 0.048"
+    fog="type: exponential; color: #040712; density: 0.046"
     background="color: #040712"
     vr-mode-ui="enabled: true"
     cursor="rayOrigin: mouse"
     raycaster="objects: .interactive-target"
-    cottage-door-trigger>
+    cottage-door-trigger
+    trail-boundary-barrier>
 
     <!-- Asset Library -->
-    <a-assets timeout="15000">
+    <a-assets timeout="20000">
       <a-asset-item id="groveTrailModel" src="./models/aether_grove_trail.glb"></a-asset-item>
     </a-assets>
 
@@ -739,7 +881,7 @@
       </a-entity>
     </a-entity>
 
-    <!-- 3D Master Model: Aether-Grove Trail & Quaint Cottage -->
+    <!-- 3D Master Model: Aether-Grove Trail V3 (Wider Corridor, PBR House & Mushrooms) -->
     <a-entity
       id="grove-scene-model"
       gltf-model="#groveTrailModel"
@@ -747,7 +889,7 @@
       shadow="receive: true; cast: true">
     </a-entity>
 
-    <!-- Bioluminescent Spore Drift Particles -->
+    <!-- Bioluminescent Spore Drift Particle Orbs -->
     <a-entity spore-drift></a-entity>
 
     <!-- Ambient Twilight Sky Illumination -->
@@ -766,18 +908,18 @@
     <!-- Bioluminescent Real-Time Point Lights along Trail            -->
     <!-- ----------------------------------------------------------- -->
 
-    <!-- Cluster 1: Trailhead Spawn Illumination (Welcomes Christopher) -->
+    <!-- Cluster 1: Trailhead Welcome (Flanking wide path at spawn) -->
     <a-light
       type="point"
       color="#00f5d4"
-      intensity="2.4"
-      distance="6.5"
+      intensity="2.6"
+      distance="6.8"
       decay="2"
-      position="-1.1 0.45 15.5"
-      bioluminescent-pulse="min: 1.8; max: 3.2; speed: 1.3; offset: 0.0">
+      position="-1.85 0.45 15.5"
+      bioluminescent-pulse="min: 1.8; max: 3.4; speed: 1.3; offset: 0.0">
     </a-light>
     <a-circle
-      position="-1.1 0.02 15.5"
+      position="-1.85 0.02 15.5"
       rotation="-90 0 0"
       radius="1.2"
       material="shader: flat; color: #00f5d4; opacity: 0.16; transparent: true">
@@ -786,33 +928,33 @@
     <a-light
       type="point"
       color="#00bbf9"
-      intensity="1.8"
-      distance="5.5"
+      intensity="2.2"
+      distance="6.2"
       decay="2"
-      position="1.2 0.45 14.0"
-      bioluminescent-pulse="min: 1.4; max: 2.8; speed: 1.6; offset: 1.2">
+      position="1.95 0.45 13.8"
+      bioluminescent-pulse="min: 1.5; max: 3.0; speed: 1.6; offset: 1.2">
     </a-light>
     <a-circle
-      position="1.2 0.02 14.0"
+      position="1.95 0.02 13.8"
       rotation="-90 0 0"
-      radius="1.0"
+      radius="1.1"
       material="shader: flat; color: #00bbf9; opacity: 0.14; transparent: true">
     </a-circle>
 
-    <!-- Cluster 2: Bend 1 (Guiding past the first ancient oak) -->
+    <!-- Cluster 2: First S-Curve Bend -->
     <a-light
       type="point"
       color="#00f5d4"
-      intensity="2.5"
-      distance="6.8"
+      intensity="2.8"
+      distance="7.0"
       decay="2"
-      position="-2.2 0.5 10.5"
-      bioluminescent-pulse="min: 1.9; max: 3.4; speed: 1.2; offset: 2.1">
+      position="-2.85 0.5 10.5"
+      bioluminescent-pulse="min: 2.0; max: 3.6; speed: 1.2; offset: 2.1">
     </a-light>
     <a-circle
-      position="-2.2 0.02 10.5"
+      position="-2.85 0.02 10.5"
       rotation="-90 0 0"
-      radius="1.3"
+      radius="1.4"
       material="shader: flat; color: #00f5d4; opacity: 0.18; transparent: true">
     </a-circle>
 
@@ -820,42 +962,42 @@
     <a-light
       type="point"
       color="#ffb703"
-      intensity="3.2"
-      distance="7.5"
+      intensity="3.4"
+      distance="8.0"
       decay="2"
-      position="-1.9 2.2 6.5">
+      position="-2.8 2.2 6.5">
     </a-light>
 
     <!-- Cluster 3: Mid-Trail Glowing Mushrooms -->
     <a-light
       type="point"
       color="#00f5d4"
-      intensity="2.2"
-      distance="6.2"
+      intensity="2.4"
+      distance="6.5"
       decay="2"
-      position="1.6 0.4 7.0"
-      bioluminescent-pulse="min: 1.6; max: 3.0; speed: 1.5; offset: 3.4">
+      position="2.25 0.4 6.8"
+      bioluminescent-pulse="min: 1.7; max: 3.2; speed: 1.5; offset: 3.4">
     </a-light>
     <a-circle
-      position="1.6 0.02 7.0"
+      position="2.25 0.02 6.8"
       rotation="-90 0 0"
-      radius="1.1"
+      radius="1.2"
       material="shader: flat; color: #00f5d4; opacity: 0.15; transparent: true">
     </a-circle>
 
     <a-light
       type="point"
       color="#00bbf9"
-      intensity="2.4"
-      distance="6.2"
+      intensity="2.5"
+      distance="6.5"
       decay="2"
-      position="-1.8 0.4 3.0"
-      bioluminescent-pulse="min: 1.7; max: 3.2; speed: 1.1; offset: 0.8">
+      position="-2.65 0.4 2.8"
+      bioluminescent-pulse="min: 1.8; max: 3.4; speed: 1.1; offset: 0.8">
     </a-light>
     <a-circle
-      position="-1.8 0.02 3.0"
+      position="-2.65 0.02 2.8"
       rotation="-90 0 0"
-      radius="1.1"
+      radius="1.2"
       material="shader: flat; color: #00bbf9; opacity: 0.15; transparent: true">
     </a-circle>
 
@@ -863,26 +1005,26 @@
     <a-light
       type="point"
       color="#ffb703"
-      intensity="3.0"
-      distance="7.5"
+      intensity="3.2"
+      distance="8.0"
       decay="2"
-      position="2.2 2.2 -2.0">
+      position="3.0 2.2 -2.0">
     </a-light>
 
     <!-- Cluster 4: Clearing Threshold Mushrooms -->
     <a-light
       type="point"
       color="#00f5d4"
-      intensity="2.6"
-      distance="6.8"
+      intensity="2.8"
+      distance="7.2"
       decay="2"
-      position="-1.6 0.45 -5.5"
-      bioluminescent-pulse="min: 2.0; max: 3.6; speed: 1.4; offset: 1.9">
+      position="-2.45 0.45 -5.8"
+      bioluminescent-pulse="min: 2.0; max: 3.8; speed: 1.4; offset: 1.9">
     </a-light>
     <a-circle
-      position="-1.6 0.02 -5.5"
+      position="-2.45 0.02 -5.8"
       rotation="-90 0 0"
-      radius="1.3"
+      radius="1.4"
       material="shader: flat; color: #00f5d4; opacity: 0.18; transparent: true">
     </a-circle>
 
@@ -890,18 +1032,18 @@
     <a-light
       type="point"
       color="#ffb703"
-      intensity="3.4"
-      distance="8.0"
+      intensity="3.6"
+      distance="8.5"
       decay="2"
-      position="-2.2 2.2 -8.0">
+      position="-3.0 2.2 -8.0">
     </a-light>
 
     <!-- Cottage Front Porch & Window Radiant Amber Illumination -->
     <a-light
       type="point"
       color="#ffa500"
-      intensity="5.2"
-      distance="12.5"
+      intensity="5.5"
+      distance="13.5"
       decay="1.8"
       position="0.0 2.2 -13.2">
     </a-light>
@@ -910,11 +1052,11 @@
     <!-- Interactive Door Raycast Target & 3D In-World Slate         -->
     <!-- ----------------------------------------------------------- -->
 
-    <!-- Invisible Raycast Target on Front Door (Z = -13.6, X = 0.0) -->
+    <!-- Raycast Target on Front Door (Z = -13.53, X = 0.0) -->
     <a-box
       id="interactive-door-target"
       class="interactive-target"
-      position="0 1.45 -13.55"
+      position="0 1.48 -13.53"
       scale="1.3 2.1 0.4"
       material="transparent: true; opacity: 0.0"
       visible="true">
@@ -960,7 +1102,7 @@
       </a-text>
       <!-- Body Text -->
       <a-text
-        value="You have walked the dark winding trail\nand reached our cottage clearing.\nStep inside soon — our hearth, thinking chamber,\nand living presence are being forged within."
+        value="You have walked the wide enchanted trail\nand reached our cottage clearing.\nStep inside soon — our hearth, thinking chamber,\nand living presence are being forged within."
         align="center"
         color="#e2e8f0"
         width="2.4"
